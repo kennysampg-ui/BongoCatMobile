@@ -24,6 +24,14 @@ object Defaults {
         put("batterySaver", false)
         put("reactOutside", true)   // reagir a toques/cliques fora do personagem
         put("favorites", JSONArray())
+        put("displayMode", "classic") // classic | osu | mania4k | mania7k | taiko | catch
+        put("keyBindings", JSONObject().apply {
+            put("key0", 32); put("key1", 34); put("key2", 38); put("key3", 39)
+            put("key4", 47); put("key5", 62); put("key6", 40)
+            put("left", 54); put("right", 52)
+            put("rimLeft", 32); put("centreLeft", 34)
+            put("centreRight", 38); put("rimRight", 39); put("dash", 62)
+        })
     }
 }
 
@@ -112,10 +120,23 @@ class SettingsStore(context: Context) {
             if (ID_REGEX.matches(s)) cleanFav.put(s)
         }
         o.put("favorites", cleanFav)
+        if (o.optString("displayMode", "classic") !in DISPLAY_MODES) o.put("displayMode", "classic")
+        val inputBindings = o.optJSONObject("keyBindings") ?: JSONObject()
+        val cleanBindings = JSONObject()
+        val bindingKeys = inputBindings.keys()
+        while (bindingKeys.hasNext()) {
+            val action = bindingKeys.next()
+            val code = inputBindings.optInt(action, -1)
+            if (action.matches(Regex("(key[0-6]|left|right|dash|rimLeft|centreLeft|centreRight|rimRight)")) &&
+                code in 0..300
+            ) cleanBindings.put(action, code)
+        }
+        o.put("keyBindings", cleanBindings)
         return o
     }
 
     companion object {
+        private val DISPLAY_MODES = setOf("classic", "osu", "mania4k", "mania7k", "taiko", "catch")
         private const val KEY = "settings_json"
         private val ID_REGEX = Regex("[A-Za-z0-9_-]{1,80}")
     }

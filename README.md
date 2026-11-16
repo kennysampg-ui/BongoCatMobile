@@ -80,7 +80,7 @@ O Android **proíbe** um app de observar outros apps. O Bongo Cat Mobile respeit
 
 Detalhes de privacidade (verificáveis no código):
 - **Sem permissão `INTERNET`** no Manifest: o app não consegue enviar nada para fora do aparelho. A WebView também roda com `blockNetworkLoads`.
-- `KeyPulseAccessibilityService`: sem `accessibilityEventTypes`, `canRetrieveWindowContent=false`, descarta o código da tecla na hora, não armazena nada e **não consome** a tecla.
+- `KeyPulseAccessibilityService`: sem `accessibilityEventTypes`, `canRetrieveWindowContent=false`, compara o código numérico de cada tecla **apenas com os atalhos que você configurou** (não guarda, não registra e não envia o código; o app nem tem Internet) e **não consome** a tecla.
 - A página da sobreposição **não tem ponte JavaScript** para o Android: só recebe eventos.
 - Importação valida o conteúdo real do arquivo (assinatura PNG/GIF/JPEG/WebP + dimensões), limite de 24 MB / 8192 px, e grava só na pasta privada do app. Acesso a `file://` desativado; arquivos importados são servidos por `WebViewAssetLoader`.
 - `allowBackup=false`.
@@ -100,7 +100,7 @@ Galeria ▸ **Importar** ▸ para cada estado (Repouso, Digitação…) escolha 
 - Efeito de movimento (respirar, pulinho, achatar, inclinar, tremer, seguir o mouse, saltar), escala e espelhar.
 - Estados sem arquivo usam o de Repouso. Use apenas imagens que você tem direito de usar.
 
-Os personagens embutidos são **arte original deste projeto** (desenhada em SVG); não usam arte do Bongo Cat original nem de terceiros. Projeto independente.
+Os personagens do modo **Clássico** são arte original deste projeto (desenhada em SVG). Os sprites dos modos **osu!/Mania/Taiko/Catch** vêm do projeto `bongocat-osu` (licença MIT, aviso em `app/src/main/assets/www/modes/`) e retratam o meme Bongo Cat; confira se a licença atende ao seu uso, sobretudo se for distribuir o app. Projeto independente, sem vínculo com os autores originais.
 
 ## Estrutura
 ```
@@ -132,3 +132,26 @@ Dica de desenvolvimento: abrir `app/src/main/assets/www/index.html` num navegado
 - **Sem som**: confira *Ajustes ▸ Sons* e o volume de mídia do aparelho.
 - **Tela em branco no app**: atualize o *Android System WebView* na Play Store (a interface usa CSS moderno, Chromium ≥ 111).
 - **Erro de SDK ao compilar**: crie `local.properties` com `sdk.dir=/caminho/do/Android/Sdk` (o Android Studio faz isso sozinho).
+
+## Modos Bongo Cat osu! (adaptação mobile)
+
+A versão mobile inclui um seletor de estilos na tela inicial e em Ajustes:
+
+- **Clássico**: personagens SVG/PNG/GIF já existentes no Bongo Cat Mobile.
+- **osu!**: sprites do modo osu! (base visual com patas reagindo aos pulsos de entrada).
+- **Mania 4K** e **Mania 7K**: fundos e sprites de teclas/ mãos para cada layout.
+- **Taiko**: sprites de aro/centro para as duas mãos.
+- **Catch**: sprites de movimento lateral e dash.
+
+Os recursos visuais foram adaptados do projeto `bongocat-osu` versão 1.5.3, distribuído sob licença MIT. O aviso integral está em `app/src/main/assets/www/modes/LICENSE-BONGOCAT-OSU-MIT.txt`.
+
+**Limitação de entrada no Android:** o modo osu! não acompanha a posição global do mouse fora da janela flutuante; o Android só entrega o movimento ao app sob o cursor. Toques e cliques em outros apps chegam apenas como um aviso genérico (sem posição). Teclas físicas só funcionam sobre outros apps com o serviço de acessibilidade ativo, e então cada tecla mapeada aciona a ação correspondente do modo (pista do Mania, aro/centro do Taiko, etc.). No modo Clássico, as teclas não mapeadas animam a digitação.
+
+
+## Mapeamento de teclas físicas (modo global)
+
+A versão com mapeamento permite associar teclas físicas USB/Bluetooth às ações dos modos osu!, Mania 4K/7K, Taiko e Catch. A configuração fica em Ajustes > Teclado e mouse > Mapeamento de teclas.
+
+Para funcionar tanto dentro do Bongo Cat quanto sobre outros aplicativos, o usuário precisa ativar manualmente o serviço **Bongo Cat – teclado físico** nas configurações de Acessibilidade do Android. O serviço compara apenas códigos numéricos das teclas configuradas; não lê texto digitado, não observa a tela e não consome os eventos. Teclados virtuais/IME não são suportados.
+
+Mapeamentos padrão: osu! Z/X; Mania 4K D/F/J/K; Mania 7K D/F/S/Espaço/J/K/L; Taiko D/F/J/K; Catch Z/X/Espaço. Os atalhos podem ser alterados individualmente na interface.

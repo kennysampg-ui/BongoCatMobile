@@ -116,7 +116,8 @@
   function mountEngine(host, def) {
     unmountEngine();
     engineHost = host;
-    engine = new E.Engine(host);
+    engine = (S.settings.displayMode && S.settings.displayMode !== 'classic' && global.BongoModes)
+      ? new global.BongoModes.Engine(host, S.settings.displayMode) : new E.Engine(host);
     engine.setSpeed(S.settings.speed);
     engine.setBatterySaver(!!S.settings.batterySaver);
     engine.setCharacter(def);
@@ -185,7 +186,8 @@
     var html = '<h1>Bongo Cat Mobile</h1><p class="sub">Um personagem que reage ao que você faz, flutuando sobre qualquer app.</p>' +
       '<div class="home-grid"><div class="card"><div class="row between" style="margin-bottom:10px">' +
       '<div class="grow"><b id="home-name">' + esc(c.name) + '</b><div class="small muted">Toque no palco para testar</div></div>' + statusChip() + '</div>' +
-      '<div class="stage-wrap"><div class="stage" id="home-stage"><div class="fit" id="home-fit"></div></div></div>' + testBar() + '</div>' +
+      '<div class="stage-wrap"><div class="stage" id="home-stage"><div class="fit" id="home-fit"></div></div></div>' + testBar() +
+      '<div class="field" style="margin-top:12px"><div class="field-head"><b>Modo Bongo Cat</b></div><select id="home-mode"><option value="classic">Personagens clássicos</option><option value="osu">osu!</option><option value="mania4k">Mania 4K</option><option value="mania7k">Mania 7K</option><option value="taiko">Taiko</option><option value="catch">Catch</option></select><p class="hint">Escolha o estilo de animação que ficará na sobreposição.</p></div></div>' +
       '<div><div class="card">';
 
     if (!perm) {
@@ -216,6 +218,7 @@
     root.innerHTML = html;
     mountEngine($('#home-fit'), c);
     bindTestBar(root);
+    var modeSelect = $('#home-mode'); if (modeSelect) { modeSelect.value = S.settings.displayMode || 'classic'; modeSelect.onchange = function(e) { save({ displayMode: e.target.value }); flush(); renderHome(); toast('Modo: ' + e.target.options[e.target.selectedIndex].text); }; }
     $('#home-stage').onclick = function (e) {
       if (e.target.closest('[data-t]')) return;
       engine && engine.trigger('touch'); API.playSound('tick');
@@ -542,6 +545,8 @@
       rangeField('opacity', 'Opacidade', 30, 100, 5, Math.round(s.opacity * 100), function (v) { return v + '%'; }, 'Deixe mais transparente para não atrapalhar o app de baixo.') +
       '</div>';
 
+    html += '<h2>Modo de animação</h2><div class="card"><div class="field"><div class="field-head"><b>Estilo do personagem</b></div><select id="s-mode"><option value="classic">Personagens clássicos</option><option value="osu">osu!</option><option value="mania4k">Mania 4K</option><option value="mania7k">Mania 7K</option><option value="taiko">Taiko</option><option value="catch">Catch</option></select><p class="hint">Cada modo usa sprites e movimentos próprios. Mania possui opções 4K e 7K.</p></div></div>';
+
     html += '<h2>Posição</h2><div class="card"><p class="small muted">Arraste a bolinha para posicionar o personagem. Você também pode arrastar o próprio personagem na tela. Ele nunca passa por cima das barras do sistema.</p>' +
       '<div class="pad" id="pad"><div class="dot" id="pad-dot"></div></div>' +
       '<div class="presets"><button class="btn" data-pos="0,0" aria-label="Canto superior esquerdo">↖</button><button class="btn" data-pos="1,0" aria-label="Canto superior direito">↗</button>' +
@@ -564,15 +569,16 @@
     html += '<h2>Teclado e mouse</h2><div class="card">' + switchField('outside', 'Reagir a toques e cliques fora do personagem', 'O Android avisa que houve um toque/clique em outro app, mas não onde nem em quê.', s.reactOutside) +
       '<div class="field"><div class="row between"><div class="grow"><b>Mouse</b><div class="hint">USB ou Bluetooth</div></div><span class="chip ' + (dv.mouse ? 'on' : 'off') + '">' + (dv.mouse ? 'Conectado' : 'Não detectado') + '</span></div></div>' +
       '<div class="field"><div class="row between"><div class="grow"><b>Teclado físico</b><div class="hint">USB ou Bluetooth</div></div><span class="chip ' + (dv.keyboard ? 'on' : 'off') + '">' + (dv.keyboard ? 'Conectado' : 'Não detectado') + '</span></div></div>' +
-      '<div class="field"><div class="row between"><div class="grow"><b>Detecção de teclas em outros apps</b><div class="hint">Serviço de acessibilidade opcional. Só detecta “uma tecla foi apertada”.</div></div><span class="chip ' + (S.a11y.enabled ? 'on' : 'off') + '">' + (S.a11y.enabled ? 'Ativada' : 'Desativada') + '</span></div>' +
-      '<button class="btn sm" id="btn-a11y" style="margin-top:10px">' + (S.a11y.enabled ? 'Gerenciar nas configurações' : 'Ativar nas configurações') + '</button></div></div>';
+      '<div class="field"><div class="row between"><div class="grow"><b>Detecção de teclas em outros apps</b><div class="hint">Serviço opcional: compara apenas códigos numéricos das teclas físicas mapeadas.</div></div><span class="chip ' + (S.a11y.enabled ? 'on' : 'off') + '">' + (S.a11y.enabled ? 'Ativada' : 'Desativada') + '</span></div>' +
+      '<button class="btn sm" id="btn-a11y" style="margin-top:10px">' + (S.a11y.enabled ? 'Gerenciar nas configurações' : 'Ativar nas configurações') + '</button></div>' +
+      '<div class="field"><b>Mapeamento de teclas</b><p class="hint">Toque em uma ação e pressione a tecla física desejada. Para funcionar em outros apps, ative o serviço de acessibilidade.</p><div id="keymap-list"></div></div></div>';
 
     html += '<details class="card"><summary>Como funciona e quais são as limitações do Android</summary><div class="body">' +
       '<p class="small">Por segurança, o Android <b>não deixa um app ver o que acontece em outros apps</b>. Este aplicativo respeita isso. Veja o que dá e o que não dá:</p>' +
       '<table class="lim">' +
       '<tr><td>Toque ou clique <b>no personagem</b></td><td><span class="yes">Sim</span> – toque, mouse (esquerdo/direito), passar o mouse por cima e roda do mouse.</td></tr>' +
       '<tr><td>Toque/clique <b>em outro app</b></td><td><span class="part">Parcial</span> – o sistema avisa que houve um toque fora da janela, sem posição e sem conteúdo. O personagem reage, mas não sabe em quê.</td></tr>' +
-      '<tr><td>Teclado físico em outro app</td><td><span class="part">Só com acessibilidade</span> – você precisa ativar o serviço manualmente. Ele recebe apenas um pulso “tecla pressionada”; o código da tecla é descartado na hora.</td></tr>' +
+      '<tr><td>Teclado físico em outro app</td><td><span class="part">Só com acessibilidade</span> – você precisa ativar o serviço manualmente. Ele compara somente o código numérico da tecla com os atalhos configurados; não lê o texto digitado.</td></tr>' +
       '<tr><td>Teclado virtual (na tela)</td><td><span class="no">Não</span> – detectá-lo exigiria ler o texto digitado. O app não faz isso.</td></tr>' +
       '<tr><td>Movimento do mouse fora do personagem</td><td><span class="no">Não</span> – o Android só entrega o movimento ao app que está sob o cursor.</td></tr>' +
       '<tr><td>Ler textos, senhas ou a tela</td><td><span class="no">Nunca</span> – o serviço não lê conteúdo de tela e o app <b>nem tem a permissão de Internet</b>: nada sai do aparelho.</td></tr></table>' +
@@ -586,6 +592,7 @@
     var root = $('#screen-settings');
     root.innerHTML = html;
     $('#s-forced').value = s.forcedAnim || 'auto';
+    var modeSetting = $('#s-mode'); if (modeSetting) { modeSetting.value = s.displayMode || 'classic'; modeSetting.onchange = function(e) { save({ displayMode: e.target.value }); flush(); renderSettings(); toast('Modo atualizado'); }; }
 
     function bindRange(id, key, scale, fmt, extra) {
       $('#s-' + id).oninput = function (e) {
@@ -603,10 +610,57 @@
     $('#s-outside').onchange = function (e) { save({ reactOutside: e.target.checked }); };
     $$('[data-snd]', root).forEach(function (b) { b.onclick = function () { flush(); API.playSound(b.getAttribute('data-snd')); }; });
     $('#btn-a11y').onclick = function () {
-      dialog('Detecção de teclado físico', '<p>Vamos abrir <b>Acessibilidade</b>. Procure <b>“Bongo Cat – teclado físico”</b> e ative.</p><p class="small muted">O Android mostrará um aviso padrão de segurança. Este serviço só percebe que uma tecla foi apertada, <b>não lê o que você digita</b>, não vê a tela e o app não tem Internet. Você pode desativá-lo quando quiser.</p>',
+      dialog('Detecção de teclado físico', '<p>Vamos abrir <b>Acessibilidade</b>. Procure <b>“Bongo Cat – teclado físico”</b> e ative.</p><p class="small muted">O Android mostrará um aviso padrão de segurança. O serviço compara somente o código numérico das teclas físicas mapeadas. Não lê texto digitado nem conteúdo da tela. Você pode desativá-lo quando quiser.</p>',
         [{ label: 'Cancelar' }, { label: 'Abrir', cls: 'primary' }]).then(function (i) { if (i === 1) API.openAccessibilitySettings(); });
     };
     $('#btn-appset').onclick = function () { API.openAppSettings(); };
+
+    var modeForKeys = s.displayMode || 'classic';
+    var actionSets = {
+      osu: [['left','Clique esquerdo'],['right','Clique direito']],
+      mania4k: [['key0','Pista 1'],['key1','Pista 2'],['key2','Pista 3'],['key3','Pista 4']],
+      mania7k: [['key0','Pista 1'],['key1','Pista 2'],['key2','Pista 3'],['key3','Pista 4'],['key4','Pista 5'],['key5','Pista 6'],['key6','Pista 7']],
+      taiko: [['rimLeft','Borda esquerda'],['centreLeft','Centro esquerdo'],['centreRight','Centro direito'],['rimRight','Borda direita']],
+      catch: [['left','Mover à esquerda'],['right','Mover à direita'],['dash','Dash']],
+      classic: [['left','Pata esquerda'],['right','Pata direita']]
+    };
+    var keyNames = {};
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(function(ch, i){ keyNames[29+i] = ch; });
+    for (var d=0; d<9; d++) keyNames[8+d] = String(d+1);
+    keyNames[7]='0'; keyNames[62]='Espaço'; keyNames[66]='Enter';
+    keyNames[21]='←'; keyNames[22]='→'; keyNames[19]='↑'; keyNames[20]='↓';
+    keyNames[59]='Shift'; keyNames[60]='Shift direito'; keyNames[113]='Ctrl'; keyNames[57]='Alt';
+    function androidKeyCode(e) {
+      if (e.code && /^Key[A-Z]$/.test(e.code)) return 29 + e.code.charCodeAt(3) - 65;
+      if (e.code && /^Digit[0-9]$/.test(e.code)) return e.code === 'Digit0' ? 7 : 8 + Number(e.code.slice(5)) - 1;
+      var special = {Space:62, Enter:66, ArrowLeft:21, ArrowRight:22, ArrowUp:19, ArrowDown:20, ShiftLeft:59, ShiftRight:60, ControlLeft:113, AltLeft:57};
+      return special[e.code] || null;
+    }
+    var bindings = Object.assign({}, s.keyBindings || {});
+    var mapRoot = $('#keymap-list');
+    function renderKeymap() {
+      var actions = actionSets[modeForKeys] || actionSets.classic;
+      mapRoot.innerHTML = actions.map(function(a) {
+        return '<div class="row between" style="margin:8px 0"><span class="small">' + a[1] + '</span><button class="btn sm" data-bind-key="' + a[0] + '">' + (keyNames[bindings[a[0]]] || 'Definir tecla') + '</button></div>';
+      }).join('');
+      $$('[data-bind-key]', mapRoot).forEach(function(btn) {
+        btn.onclick = function() {
+          var action = btn.getAttribute('data-bind-key');
+          btn.textContent = 'Pressione uma tecla…';
+          function capture(e) {
+            var code = androidKeyCode(e);
+            if (code === null || e.isComposing) return;
+            e.preventDefault(); e.stopPropagation();
+            document.removeEventListener('keydown', capture, true);
+            bindings[action] = code;
+            save({keyBindings: bindings}); flush(); renderKeymap();
+            toast('Atalho atualizado: ' + (keyNames[code] || code));
+          }
+          document.addEventListener('keydown', capture, true);
+        };
+      });
+    }
+    renderKeymap();
     $$('[data-pos]', root).forEach(function (b) {
       b.onclick = function () { var p = b.getAttribute('data-pos').split(','); setPos(+p[0], +p[1]); };
     });

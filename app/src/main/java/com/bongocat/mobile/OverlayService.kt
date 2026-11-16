@@ -552,7 +552,41 @@ class OverlayService : Service() {
         }
     }
 
-    /** Chamado pelo serviço de acessibilidade opcional: apenas "uma tecla foi pressionada". */
+    /** Compara somente o código numérico da tecla física com o perfil do modo ativo. */
+    fun onMappedKey(keyCode: Int) {
+        handler.post {
+            if (hidden || !pageReady) return@post
+            val bindings = settings.optJSONObject("keyBindings") ?: return@post
+            val mode = settings.optString("displayMode", "classic")
+            val actions = when (mode) {
+                "mania4k" -> (0..3).map { "key$it" }
+                "mania7k" -> (0..6).map { "key$it" }
+                "taiko" -> listOf("rimLeft", "centreLeft", "centreRight", "rimRight")
+                "catch" -> listOf("left", "right", "dash")
+                else -> listOf("left", "right")
+            }
+            for (action in actions) {
+                if (bindings.optInt(action, -1) == keyCode) {
+                    val event = when (action) {
+                        "left" -> "clickLeft"
+                        "right" -> "clickRight"
+                        "dash" -> "mouseMove"
+                        "rimLeft" -> "taiko0"
+                        "centreLeft" -> "taiko1"
+                        "centreRight" -> "taiko2"
+                        "rimRight" -> "taiko3"
+                        else -> "mania" + action
+                    }
+                    emit(event)
+                    return@post
+                }
+            }
+            // Modo clássico: qualquer outra tecla física continua animando a "digitação".
+            if (mode == "classic") emit("keyboard")
+        }
+    }
+
+    /** Compatibilidade com eventos genéricos de versões anteriores. */
     fun onKeyPulse() {
         handler.post {
             if (hidden || !pageReady) return@post
