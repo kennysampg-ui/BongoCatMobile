@@ -1,11 +1,15 @@
 name: Build APK
 
 # Compila o APK de teste na nuvem (os runners do GitHub já trazem o Android SDK).
-# Rode em: aba Actions > "Build APK" > Run workflow. O APK fica em "Artifacts".
+# Roda a cada push na main ou manualmente (aba Actions > "Build APK" > Run workflow).
+# O APK fica em "Releases" (link fixo) e também em "Artifacts" da execução.
 on:
   workflow_dispatch:
   push:
     branches: [main]
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -23,8 +27,21 @@ jobs:
       - name: Compilar APK de depuração (assinado com a chave debug)
         run: ./gradlew --no-daemon assembleDebug
 
+      - name: Renomear APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk BongoCatMobile-debug.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: BongoCatMobile-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: BongoCatMobile-debug.apk
           if-no-files-found: error
+
+      - name: Publicar na Release "latest"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --cleanup-tag --yes || true
+          gh release create latest BongoCatMobile-debug.apk \
+            --title "APK de teste (último build)" \
+            --notes "APK de depuração assinado com a chave debug. Commit: ${GITHUB_SHA::7}. Instale permitindo apps de fontes desconhecidas." \
+            --prerelease
