@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Bongo Cat Mobile</string>
+
+    <string name="a11y_label">Bongo Cat – teclado físico</string>
+    <string name="a11y_description">Opcional. Faz o personagem reagir quando você digita em um teclado físico (USB ou Bluetooth). O app descarta o código de cada tecla, nunca lê textos, campos ou senhas e não tem permissão de Internet.</string>
+
+    <string name="notif_channel">Personagem flutuante</string>
+    <string name="notif_title">Bongo Cat está ativo</string>
+    <string name="notif_text">Toque para abrir o app. Use os botões para ocultar ou fechar.</string>
+    <string name="notif_hide">Ocultar</string>
+    <string name="notif_show">Mostrar</string>
+    <string name="notif_close">Fechar</string>
+</resources>
