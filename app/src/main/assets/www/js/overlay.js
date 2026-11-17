@@ -22,6 +22,9 @@
     configure: function (cfg) {
       var s = (cfg && cfg.settings) || {};
       var mode = s.displayMode || 'classic';
+      var desk = s.transparentDesk !== false;
+      if (window.BongoModes && mode === 'osu' && window.BongoModes.transparentDesk !== desk) { window.BongoModes.transparentDesk = desk; currentMode = null; }
+      if (window.BongoModes) window.BongoModes.transparentDesk = desk;
       if (mode !== currentMode) {
         engine.destroy(); currentMode = mode; currentKey = null;
         engine = (mode !== 'classic' && window.BongoModes) ? new BongoModes.Engine(host, mode) : new BongoEngine.Engine(host);

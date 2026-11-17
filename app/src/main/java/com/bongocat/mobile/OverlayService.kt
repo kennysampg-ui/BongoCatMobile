@@ -57,7 +57,7 @@ import kotlin.math.roundToInt
  *  - teclado físico                                              -> só via serviço de acessibilidade opcional;
  *  - movimento do mouse fora do personagem / teclado virtual     -> NÃO detectável (não é entregue a apps).
  */
-class OverlayService : Service() {
+class OverlayService : Service(), InputZones.Listener {
 
     companion object {
         const val ACTION_START = "com.bongocat.mobile.action.START"
@@ -98,6 +98,10 @@ class OverlayService : Service() {
     private var params: WindowManager.LayoutParams? = null
     private var settings: JSONObject = Defaults.settings()
     private var cachedBounds = Rect(0, 0, 1080, 1920)
+    private var zones: InputZones? = null
+    private var ptrX = 0.5f
+    private var ptrY = 0.5f
+    private var lastPadAt = 0L
 
     private var pageReady = false
     private var screenOn = true
@@ -190,6 +194,8 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
+        advanced?.stop()
+        advanced = null
         removeOverlay()
         if (receiverRegistered) {
             try {
@@ -266,7 +272,9 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
-        if (settings.optBoolean("reactOutside", true)) {
+        // Com as áreas de toque ativas, os toques nelas contariam como "fora do personagem": não observar.
+        val zonesTouchable = settings.optBoolean("zonesOn", false) && !settings.optBoolean("zonesVisualOnly", false)
+        if (settings.optBoolean("reactOutside", true) && !zonesTouchable) {
             f = f or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
         }
         return f
@@ -347,6 +355,7 @@ class OverlayService : Service() {
             stopSelf()
             return
         }
+        zones = InputZones(this, wm, this)
         applySettings()
         webView.loadUrl("${WebAssets.BASE}/assets/www/overlay.html")
     }
@@ -360,6 +369,8 @@ class OverlayService : Service() {
 
     private fun removeOverlay() {
         handler.removeCallbacksAndMessages(null)
+        zones?.removeAll()
+        zones = null
         val r = root
         if (r != null) {
             try {
@@ -496,6 +507,9 @@ class OverlayService : Service() {
 
         applyPosition()
         pushConfig()
+        zones?.apply(settings, cachedBounds, modeActions(settings.optString("displayMode", "classic")).size)
+        zones?.setVisible(!hidden)
+        updateAdvancedInput()
     }
 
     private fun pushConfig() {
@@ -512,6 +526,7 @@ class OverlayService : Service() {
     fun setHidden(h: Boolean) {
         hidden = h
         root?.visibility = if (h) View.GONE else View.VISIBLE
+        zones?.setVisible(!h)
         if (h) {
             handler.removeCallbacks(hideControlsRunnable)
             controlsVisible = false
@@ -561,10 +576,32 @@ class OverlayService : Service() {
 
     /** Posição do cursor (0..1) sobre o personagem: o modo osu! move o mouse no mousepad. */
     private fun pointer(nx: Float, ny: Float) {
+        ptrX = nx.coerceIn(0f, 1f)
+        ptrY = ny.coerceIn(0f, 1f)
         if (hidden || !pageReady) return
         web?.evaluateJavascript(
             String.format(Locale.US, "BongoOverlay.pointer(%.3f,%.3f)", nx.coerceIn(0f, 1f), ny.coerceIn(0f, 1f)), null
         )
+    }
+
+    /** Ações (pistas) do modo atual, na ordem usada pelo mapeamento de teclas e pelas faixas da área do teclado. */
+    private fun modeActions(mode: String): List<String> = when (mode) {
+        "mania4k" -> (0..3).map { "key$it" }
+        "mania7k" -> (0..6).map { "key$it" }
+        "taiko" -> listOf("rimLeft", "centreLeft", "centreRight", "rimRight")
+        "catch" -> listOf("left", "right", "dash")
+        else -> listOf("left", "right")
+    }
+
+    private fun eventForAction(action: String): String = when (action) {
+        "left" -> "clickLeft"
+        "right" -> "clickRight"
+        "dash" -> "mouseMove"
+        "rimLeft" -> "taiko0"
+        "centreLeft" -> "taiko1"
+        "centreRight" -> "taiko2"
+        "rimRight" -> "taiko3"
+        else -> "mania$action"
     }
 
     /** Compara somente o código numérico da tecla física com o perfil do modo ativo. */
@@ -573,31 +610,97 @@ class OverlayService : Service() {
             if (hidden || !pageReady) return@post
             val bindings = settings.optJSONObject("keyBindings") ?: return@post
             val mode = settings.optString("displayMode", "classic")
-            val actions = when (mode) {
-                "mania4k" -> (0..3).map { "key$it" }
-                "mania7k" -> (0..6).map { "key$it" }
-                "taiko" -> listOf("rimLeft", "centreLeft", "centreRight", "rimRight")
-                "catch" -> listOf("left", "right", "dash")
-                else -> listOf("left", "right")
-            }
-            for (action in actions) {
+            for (action in modeActions(mode)) {
                 if (bindings.optInt(action, -1) == keyCode) {
-                    val event = when (action) {
-                        "left" -> "clickLeft"
-                        "right" -> "clickRight"
-                        "dash" -> "mouseMove"
-                        "rimLeft" -> "taiko0"
-                        "centreLeft" -> "taiko1"
-                        "centreRight" -> "taiko2"
-                        "rimRight" -> "taiko3"
-                        else -> "mania" + action
-                    }
-                    emit(event)
+                    emit(eventForAction(action))
                     return@post
                 }
             }
             // Modo clássico: qualquer outra tecla física continua animando a "digitação".
             if (mode == "classic") emit("keyboard")
+        }
+    }
+
+    // ---------------------------------------------------------------- áreas de toque (InputZones.Listener)
+
+    override fun onLane(lane: Int, lanes: Int) {
+        if (hidden || !pageReady) return
+        val mode = settings.optString("displayMode", "classic")
+        if (mode == "classic") {
+            emit("keyboard")
+            return
+        }
+        val actions = modeActions(mode)
+        emit(eventForAction(actions[lane.coerceIn(0, actions.size - 1)]))
+    }
+
+    override fun onPadDrag(dx: Float, dy: Float, w: Int, h: Int) {
+        val gain = 1.6f * settings.float("advSens", 1f).coerceIn(0.5f, 2f)
+        pointer(ptrX + dx / max(1, w) * gain, ptrY + dy / max(1, h) * gain)
+        padMotion(dx, dy, w)
+    }
+
+    override fun onPadHover(nx: Float, ny: Float) {
+        val dx = (nx - ptrX) * 100f
+        val dy = (ny - ptrY) * 100f
+        pointer(nx, ny)
+        padMotion(dx, dy, 100)
+    }
+
+    override fun onPadClick(right: Boolean) {
+        emit(if (right) "clickRight" else "clickLeft")
+    }
+
+    override fun onZoneEdited(kind: String, rect: DoubleArray) {
+        val mode = settings.optString("displayMode", "classic")
+        settings = store.update { o ->
+            val all = o.optJSONObject("zones") ?: JSONObject()
+            val m = all.optJSONObject(mode) ?: JSONObject()
+            m.put(kind, org.json.JSONArray().put(rect[0]).put(rect[1]).put(rect[2]).put(rect[3]))
+            all.put(mode, m)
+            o.put("zones", all)
+        }
+    }
+
+    /** Anima o "mexer o mouse" só nos modos em que isso não aciona uma pata (clássico e osu!). */
+    private fun padMotion(dx: Float, dy: Float, w: Int) {
+        val mode = settings.optString("displayMode", "classic")
+        if (mode != "classic" && mode != "osu") return
+        val now = SystemClock.uptimeMillis()
+        if (now - lastPadAt < 33) return
+        lastPadAt = now
+        val unit = max(1f, w * 0.15f)
+        emit("mouseMove", (dx / unit).coerceIn(-1f, 1f), (dy / unit).coerceIn(-1f, 1f))
+    }
+
+    // ---------------------------------------------------------------- modo avançado (Shizuku)
+
+    private var advanced: ShizukuInput? = null
+
+    private fun updateAdvancedInput() {
+        val want = settings.optBoolean("advancedInput", false)
+        if (want && advanced != null && advanced?.alive != true && ShizukuInput.granted()) {
+            advanced?.start() // permissão concedida depois de ligar o modo, ou o Shizuku reiniciou
+        }
+        if (want && advanced == null) {
+            val reader = ShizukuInput(object : ShizukuInput.Listener {
+                override fun onMove(dx: Int, dy: Int) {
+                    handler.post {
+                        val sens = settings.float("advSens", 1f)
+                        val k = sens / 900f
+                        pointer(ptrX + dx * k, ptrY + dy * k)
+                        padMotion(dx.toFloat(), dy.toFloat(), 100)
+                    }
+                }
+                override fun onButton(right: Boolean) { handler.post { emit(if (right) "clickRight" else "clickLeft") } }
+                override fun onTouch() { handler.post { emit("touch") } }
+                override fun onLinuxKey(androidKeyCode: Int) { onMappedKey(androidKeyCode) }
+            })
+            advanced = reader
+            reader.start()
+        } else if (!want && advanced != null) {
+            advanced?.stop()
+            advanced = null
         }
     }
 

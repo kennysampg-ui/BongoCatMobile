@@ -202,6 +202,13 @@ class MainActivity : ComponentActivity() {
         }
         o.put("notifications", notif)
         o.put("a11y", JSONObject().put("enabled", isAccessibilityEnabled()))
+        o.put(
+            "shizuku",
+            JSONObject()
+                .put("installed", ShizukuInput.installed(this))
+                .put("running", ShizukuInput.running())
+                .put("granted", ShizukuInput.granted())
+        )
         o.put("devices", InputDevicesInfo.snapshot())
         o.put(
             "app",
@@ -260,6 +267,23 @@ class MainActivity : ComponentActivity() {
 
     fun openAccessibilitySettings() {
         runOnUiThread { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+    }
+
+    /** Pede a permissão do Shizuku (se ele estiver ativo) ou abre o app/página dele. */
+    fun requestShizuku() {
+        runOnUiThread {
+            try {
+                if (ShizukuInput.running()) {
+                    ShizukuInput.requestPermission()
+                } else {
+                    val launch = packageManager.getLaunchIntentForPackage(ShizukuInput.PACKAGE)
+                    startActivity(
+                        launch ?: Intent(Intent.ACTION_VIEW, Uri.parse("https://shizuku.rikka.app/download/"))
+                    )
+                }
+            } catch (_: Exception) {
+            }
+        }
     }
 
     fun openAppSettings() {

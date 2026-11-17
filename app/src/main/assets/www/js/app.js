@@ -44,7 +44,7 @@
 
   var S = {
     settings: {}, library: [], overlay: { permission: false, running: false, hidden: false },
-    notifications: null, a11y: { enabled: false }, devices: {}, app: {},
+    notifications: null, a11y: { enabled: false }, shizuku: { installed: false, running: false, granted: false }, devices: {}, app: {},
     tab: 'home', inEditor: false, draft: null, paused: false
   };
   var engine = null;       // uma só Engine por vez (início ou editor)
@@ -68,6 +68,7 @@
     S.overlay = st.overlay || S.overlay;
     S.notifications = st.notifications;
     S.a11y = st.a11y || S.a11y;
+    S.shizuku = st.shizuku || S.shizuku;
     S.devices = st.devices || {};
     S.app = st.app || {};
     if (!Array.isArray(S.settings.favorites)) S.settings.favorites = [];
@@ -116,6 +117,7 @@
   function mountEngine(host, def) {
     unmountEngine();
     engineHost = host;
+    if (global.BongoModes) global.BongoModes.transparentDesk = S.settings.transparentDesk !== false;
     engine = (S.settings.displayMode && S.settings.displayMode !== 'classic' && global.BongoModes)
       ? new global.BongoModes.Engine(host, S.settings.displayMode) : new E.Engine(host);
     engine.setSpeed(S.settings.speed);
@@ -578,6 +580,25 @@
       '<button class="btn sm" id="btn-a11y" style="margin-top:10px">' + (S.a11y.enabled ? 'Gerenciar nas configurações' : 'Ativar nas configurações') + '</button></div>' +
       '<div class="field"><b>Mapeamento de teclas</b><p class="hint">Toque em uma ação e pressione a tecla física desejada. Para funcionar em outros apps, ative o serviço de acessibilidade.</p><div id="keymap-list"></div></div></div>';
 
+    var zk = S.shizuku || {};
+    html += '<h2>Áreas de toque (mouse e teclado)</h2><div class="card">' +
+      '<p class="hint">Duas áreas transparentes, separadas do personagem. Na área do <b>mouse</b>, arrastar o dedo move o mouse (toque = clique, dois dedos = clique direito). Na área do <b>teclado</b>, cada faixa aciona uma pata/tecla. O app que estiver embaixo de uma área <b>não recebe</b> toques nela.</p>' +
+      switchField('zonesOn', 'Ativar áreas de toque', 'Aparecem quando a sobreposição estiver ligada.', s.zonesOn) +
+      switchField('zedit', 'Editar áreas', 'Ligado: arraste cada área e use o canto inferior direito para o tamanho. Desligado: as áreas ficam travadas e funcionam.', s.zonesLocked === false) +
+      switchField('zvis', 'Só visual (deixar toques passarem)', 'O app embaixo volta a receber os toques, mas as áreas não detectam nada.', s.zonesVisualOnly) +
+      rangeField('zalpha', 'Visibilidade das áreas', 10, 90, 5, Math.round((s.zonesAlpha == null ? 0.35 : s.zonesAlpha) * 100), function (v) { return v + '%'; }) +
+      '<p class="hint">As posições são salvas separadamente para cada modo (osu!, Mania, Taiko, Catch).</p>' +
+      '<button class="btn sm" id="btn-zreset">Restaurar posições padrão</button>' +
+      switchField('desk', 'Mesa transparente (osu!)', 'Remove o fundo branco da mesa no modo osu!.', s.transparentDesk !== false) + '</div>';
+
+    html += '<h2>Modo avançado (Shizuku)</h2><div class="card">' +
+      '<p class="hint">Opcional. Com o app <b>Shizuku</b> ativo, o Bongo Cat lê o mouse (movimento e botões), toques e teclas físicas em <b>qualquer app</b>, sem bloquear nada: o jogo continua recebendo tudo. É preciso instalar o Shizuku e ativar a “Depuração sem fio” (no Samsung, refazer após reiniciar). Só lemos movimento, botões, “houve toque” e códigos de teclas mapeadas; nada é guardado nem enviado.</p>' +
+      '<div class="field"><div class="row between"><div class="grow"><b>Shizuku</b></div><span class="chip ' + (zk.running ? 'on' : 'off') + '">' + (zk.running ? 'Ativo' : (zk.installed ? 'Instalado, desligado' : 'Não instalado')) + '</span></div></div>' +
+      '<div class="field"><div class="row between"><div class="grow"><b>Permissão para o Bongo Cat</b></div><span class="chip ' + (zk.granted ? 'on' : 'off') + '">' + (zk.granted ? 'Concedida' : 'Pendente') + '</span></div>' +
+      '<button class="btn sm" id="btn-shizuku" style="margin-top:10px">' + (zk.running ? (zk.granted ? 'Permissão concedida' : 'Conceder permissão') : (zk.installed ? 'Abrir o Shizuku' : 'Baixar o Shizuku')) + '</button></div>' +
+      switchField('adv', 'Ativar leitura global de entrada', 'Só funciona com o Shizuku ativo e a permissão concedida.', s.advancedInput) +
+      rangeField('advsens', 'Sensibilidade do mouse', 25, 400, 5, Math.round((s.advSens || 1) * 100), function (v) { return (v / 100).toFixed(2) + '×'; }) + '</div>';
+
     html += '<details class="card"><summary>Como funciona e quais são as limitações do Android</summary><div class="body">' +
       '<p class="small">Por segurança, o Android <b>não deixa um app ver o que acontece em outros apps</b>. Este aplicativo respeita isso. Veja o que dá e o que não dá:</p>' +
       '<table class="lim">' +
@@ -614,6 +635,18 @@
     $('#s-sound').onchange = function (e) { save({ sound: e.target.checked }); };
     $('#s-outside').onchange = function (e) { save({ reactOutside: e.target.checked }); };
     $$('[data-snd]', root).forEach(function (b) { b.onclick = function () { flush(); API.playSound(b.getAttribute('data-snd')); }; });
+    $('#s-zonesOn').onchange = function (e) { save({ zonesOn: e.target.checked }); };
+    $('#s-zedit').onchange = function (e) { save({ zonesLocked: !e.target.checked }); };
+    $('#s-zvis').onchange = function (e) { save({ zonesVisualOnly: e.target.checked }); };
+    $('#s-desk').onchange = function (e) { save({ transparentDesk: e.target.checked }); };
+    $('#s-adv').onchange = function (e) {
+      save({ advancedInput: e.target.checked });
+      if (e.target.checked && !(S.shizuku && S.shizuku.granted)) toast('Conceda a permissão do Shizuku abaixo para funcionar.');
+    };
+    bindRange('zalpha', 'zonesAlpha', 100, function (v) { return v + '%'; });
+    bindRange('advsens', 'advSens', 100, function (v) { return (v / 100).toFixed(2) + '×'; });
+    $('#btn-zreset').onclick = function () { save({ zones: {} }); flush(); toast('Posições restauradas'); };
+    $('#btn-shizuku').onclick = function () { flush(); API.requestShizuku(); };
     $('#btn-a11y').onclick = function () {
       dialog('Detecção de teclado físico', '<p>Vamos abrir <b>Acessibilidade</b>. Procure <b>“Bongo Cat – teclado físico”</b> e ative.</p><p class="small muted">O Android mostrará um aviso padrão de segurança. O serviço compara somente o código numérico das teclas físicas mapeadas. Não lê texto digitado nem conteúdo da tela. Você pode desativá-lo quando quiser.</p>',
         [{ label: 'Cancelar' }, { label: 'Abrir', cls: 'primary' }]).then(function (i) { if (i === 1) API.openAccessibilitySettings(); });

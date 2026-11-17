@@ -50,5 +50,7 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.activity:activity-ktx:1.9.3")
+    implementation("dev.rikka.shizuku:api:13.1.5")      // modo avançado opcional (leitura global de entrada)
+    implementation("dev.rikka.shizuku:provider:13.1.5")
     implementation("androidx.webkit:webkit:1.12.1") // WebViewAssetLoader (serve assets/ e arquivos importados sem file://)
 }

@@ -22,7 +22,7 @@
 
   var DEFAULTS = {
     characterId: 'cat-original', size: 1, opacity: 1, speed: 1, posX: 0.85, posY: 0.65, sound: true, volume: 0.7,
-    forcedAnim: 'auto', batterySaver: false, reactOutside: true, favorites: []
+    forcedAnim: 'auto', batterySaver: false, reactOutside: true, favorites: [], transparentDesk: true, zonesOn: false, zonesLocked: true, zonesVisualOnly: false, zonesAlpha: 0.35, zones: {}, advancedInput: false, advSens: 1
   };
 
   var api;
@@ -46,6 +46,7 @@
       requestNotificationPermission: function () { native.requestNotificationPermission(); },
       openAccessibilitySettings: function () { native.openAccessibilitySettings(); },
       openAppSettings: function () { native.openAppSettings(); },
+      requestShizuku: function () { native.requestShizuku(); },
       playSound: function (k) { native.playSound(k); }
     };
   } else {
@@ -99,6 +100,7 @@
       requestNotificationPermission: function () {},
       openAccessibilitySettings: function () {},
       openAppSettings: function () {},
+      requestShizuku: function () {},
       playSound: function (k) {
         try {
           audio = audio || new (global.AudioContext || global.webkitAudioContext)();

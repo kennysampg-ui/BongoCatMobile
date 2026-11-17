@@ -86,6 +86,11 @@ class WebBridge(host: MainActivity) {
     }
 
     @JavascriptInterface
+    fun requestShizuku() {
+        host?.requestShizuku()
+    }
+
+    @JavascriptInterface
     fun openAppSettings() {
         host?.openAppSettings()
     }

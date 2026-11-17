@@ -139,7 +139,7 @@
     svg.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;display:block;pointer-events:none;';
 
     function img(file, w, h, x, y) { return svgEl('image', { href: R + file, x: x, y: y, width: w, height: h, preserveAspectRatio: 'none' }); }
-    svg.appendChild(img('mousebg.png', 612, 354, 0, 0));
+    svg.appendChild(img(g.BongoModes && g.BongoModes.transparentDesk === false ? 'mousebg.png' : 'mousebg_t.png', 612, 354, 0, 0));
     this.mouse = svgEl('g', {});
     this.mouse.appendChild(img('mouse.png', MOUSE_W, MOUSE_H, -MOUSE_W / 2, -MOUSE_H / 2));
     svg.appendChild(this.mouse);

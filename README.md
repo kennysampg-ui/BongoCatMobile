@@ -126,6 +126,17 @@ tools/gen_sounds.py                 regenera os sons de demonstração
 ```
 Dica de desenvolvimento: abrir `app/src/main/assets/www/index.html` num navegador de desktop roda a interface com uma ponte simulada (localStorage) — dá para ajustar o visual sem compilar o APK. A sobreposição real só existe no Android.
 
+## Áreas de toque e modo avançado (novo)
+- **Áreas de toque** (Ajustes ▸ Áreas de toque): duas janelas transparentes e independentes do personagem.
+  A do **mouse** funciona como touchpad (arrastar move o mouse do modo osu!, toque = clique, dois dedos = clique direito;
+  um mouse físico passando por cima também move). A do **teclado** tem uma faixa por pista/tecla do modo atual.
+  Dá para arrastar, redimensionar (canto inferior direito), travar, mudar a visibilidade, deixar “só visual” e restaurar o padrão.
+  Posições salvas **por modo**. O app embaixo de uma área **não recebe** toques nela (limite do Android).
+- **Modo avançado (opcional, Shizuku)**: com o app Shizuku ativo e a permissão concedida, o Bongo Cat lê movimento/botões do mouse,
+  “houve toque” e teclas físicas em qualquer app, sem bloquear nada. Lê só: movimento relativo, botões, BTN_TOUCH e códigos de teclas
+  comparados com os atalhos; nada é guardado nem enviado. Não foi testado em aparelho real; depende de Shizuku/Depuração sem fio.
+- **Mesa transparente** no modo osu!.
+
 ## Problemas comuns
 - **O personagem some em Xiaomi/Samsung/etc.**: o fabricante encerra serviços. Em *Configurações ▸ Apps ▸ Bongo Cat ▸ Bateria*, escolha "Sem restrições".
 - **Não reage a teclas digitadas em outro app**: ative o serviço em *Ajustes ▸ Ativar nas configurações* (só funciona com teclado **físico**).

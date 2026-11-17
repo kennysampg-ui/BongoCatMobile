@@ -11,6 +11,13 @@
     <!-- Notificação persistente do serviço (Android 13+). O serviço funciona mesmo se negada. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Modo avançado OPCIONAL: só funciona se o usuário instalar o Shizuku e conceder a permissão lá. -->
+    <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
+
+    <queries>
+        <package android:name="moe.shizuku.privileged.api" />
+    </queries>
+
     <!--
         PROPOSITALMENTE não há android.permission.INTERNET:
         o app não consegue transmitir nada para fora do aparelho.
@@ -36,6 +43,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
         <service
             android:name=".OverlayService"
