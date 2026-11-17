@@ -138,14 +138,14 @@ Dica de desenvolvimento: abrir `app/src/main/assets/www/index.html` num navegado
 A versão mobile inclui um seletor de estilos na tela inicial e em Ajustes:
 
 - **Clássico**: personagens SVG/PNG/GIF já existentes no Bongo Cat Mobile.
-- **osu!**: sprites do modo osu! (base visual com patas reagindo aos pulsos de entrada).
+- **osu!**: mouse e teclado como no Bongo Cat do PC. O mouse desliza no mousepad **seguindo o ponteiro** (mouse USB/Bluetooth ou dedo passando sobre o personagem), o braço esquerdo é desenhado por código até ele, e a pata direita alterna entre levantada e apertando as teclas (Z/X por padrão).
 - **Mania 4K** e **Mania 7K**: fundos e sprites de teclas/ mãos para cada layout.
 - **Taiko**: sprites de aro/centro para as duas mãos.
 - **Catch**: sprites de movimento lateral e dash.
 
 Os recursos visuais foram adaptados do projeto `bongocat-osu` versão 1.5.3, distribuído sob licença MIT. O aviso integral está em `app/src/main/assets/www/modes/LICENSE-BONGOCAT-OSU-MIT.txt`.
 
-**Limitação de entrada no Android:** o modo osu! não acompanha a posição global do mouse fora da janela flutuante; o Android só entrega o movimento ao app sob o cursor. Toques e cliques em outros apps chegam apenas como um aviso genérico (sem posição). Teclas físicas só funcionam sobre outros apps com o serviço de acessibilidade ativo, e então cada tecla mapeada aciona a ação correspondente do modo (pista do Mania, aro/centro do Taiko, etc.). No modo Clássico, as teclas não mapeadas animam a digitação.
+**Limitação de entrada no Android:** o mouse do modo osu! só acompanha o ponteiro enquanto ele passa **por cima do personagem**, não a posição global do mouse na tela; o Android só entrega o movimento ao app sob o cursor. Toques e cliques em outros apps chegam apenas como um aviso genérico (sem posição). Teclas físicas só funcionam sobre outros apps com o serviço de acessibilidade ativo, e então cada tecla mapeada aciona a ação correspondente do modo (pista do Mania, aro/centro do Taiko, etc.). No modo Clássico, as teclas não mapeadas animam a digitação.
 
 
 ## Mapeamento de teclas físicas (modo global)

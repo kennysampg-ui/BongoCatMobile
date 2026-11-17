@@ -41,6 +41,8 @@
       if (st) engine.trigger(st, { dx: dx || 0, dy: dy || 0 });
       else if (/^maniakey[0-6]$/.test(type) || /^taiko[0-3]$/.test(type)) engine.trigger(type, { dx: dx || 0, dy: dy || 0 });
     },
+    /** Posição do mouse/dedo sobre o personagem (0..1), usada pelo modo osu! para mover o mouse no mousepad. */
+    pointer: function (x, y) { if (engine.pointer) engine.pointer(x, y); },
     setPaused: function (p) {
       nativePaused = !!p;
       sync();

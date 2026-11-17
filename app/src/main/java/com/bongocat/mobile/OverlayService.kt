@@ -424,6 +424,13 @@ class OverlayService : Service() {
         return raw.coerceIn(dp(56f), max(dp(56f), limit))
     }
 
+    /** Altura da área do personagem: cenas dos modos são 612x354 (mais largas que altas); o clássico é quadrado. */
+    private fun boxHeightPx(): Int {
+        val box = boxPx()
+        return if (settings.optString("displayMode", "classic") == "classic") box
+        else (box * 354f / 612f).roundToInt().coerceAtLeast(dp(40f))
+    }
+
     private fun moveTo(x: Int, y: Int) {
         val r = root ?: return
         val p = params ?: return
@@ -446,7 +453,7 @@ class OverlayService : Service() {
         val b = cachedBounds
         val box = boxPx()
         val freeW = max(1, b.width() - box)
-        val freeH = max(1, b.height() - box)
+        val freeH = max(1, b.height() - boxHeightPx())
         val x = b.left + (settings.float("posX", 0.85f) * freeW).roundToInt()
         val y = b.top + (settings.float("posY", 0.65f) * freeH).roundToInt()
         moveTo(x, y)
@@ -457,7 +464,7 @@ class OverlayService : Service() {
         val b = cachedBounds
         val box = boxPx()
         val freeW = max(1, b.width() - box)
-        val freeH = max(1, b.height() - box)
+        val freeH = max(1, b.height() - boxHeightPx())
         val px = ((p.x - b.left) / freeW.toFloat()).coerceIn(0f, 1f)
         val py = ((p.y - b.top) / freeH.toFloat()).coerceIn(0f, 1f)
         settings = store.update {
@@ -479,7 +486,7 @@ class OverlayService : Service() {
         val box = boxPx()
         val flp = frame.layoutParams as LinearLayout.LayoutParams
         flp.width = box
-        flp.height = box
+        flp.height = boxHeightPx()
         frame.layoutParams = flp
 
         r.alpha = settings.float("opacity", 1f)
@@ -550,6 +557,14 @@ class OverlayService : Service() {
                 "touch" -> sounds.play(SoundManager.TICK, vol)
             }
         }
+    }
+
+    /** Posição do cursor (0..1) sobre o personagem: o modo osu! move o mouse no mousepad. */
+    private fun pointer(nx: Float, ny: Float) {
+        if (hidden || !pageReady) return
+        web?.evaluateJavascript(
+            String.format(Locale.US, "BongoOverlay.pointer(%.3f,%.3f)", nx.coerceIn(0f, 1f), ny.coerceIn(0f, 1f)), null
+        )
     }
 
     /** Compara somente o código numérico da tecla física com o perfil do modo ativo. */
@@ -679,7 +694,7 @@ class OverlayService : Service() {
         }
 
         // Mouse (USB/Bluetooth) passando por cima do personagem.
-        shield.setOnHoverListener { _, e ->
+        shield.setOnHoverListener { v, e ->
             when (e.actionMasked) {
                 MotionEvent.ACTION_HOVER_ENTER -> {
                     lastHoverX = e.x
@@ -689,6 +704,7 @@ class OverlayService : Service() {
                     val now = SystemClock.uptimeMillis()
                     if (now - lastHoverAt >= 33) {
                         lastHoverAt = now
+                        pointer(e.x / max(1, v.width), e.y / max(1, v.height))
                         val unit = max(1f, boxPx() * 0.15f)
                         val dx = ((e.x - lastHoverX) / unit).coerceIn(-1f, 1f)
                         val dy = ((e.y - lastHoverY) / unit).coerceIn(-1f, 1f)

@@ -186,7 +186,7 @@
     var html = '<h1>Bongo Cat Mobile</h1><p class="sub">Um personagem que reage ao que você faz, flutuando sobre qualquer app.</p>' +
       '<div class="home-grid"><div class="card"><div class="row between" style="margin-bottom:10px">' +
       '<div class="grow"><b id="home-name">' + esc(c.name) + '</b><div class="small muted">Toque no palco para testar</div></div>' + statusChip() + '</div>' +
-      '<div class="stage-wrap"><div class="stage" id="home-stage"><div class="fit" id="home-fit"></div></div></div>' + testBar() +
+      '<div class="stage-wrap"><div class="stage" id="home-stage"' + (S.settings.displayMode && S.settings.displayMode !== 'classic' ? ' style="aspect-ratio:612/354"' : '') + '><div class="fit" id="home-fit"></div></div></div>' + testBar() +
       '<div class="field" style="margin-top:12px"><div class="field-head"><b>Modo Bongo Cat</b></div><select id="home-mode"><option value="classic">Personagens clássicos</option><option value="osu">osu!</option><option value="mania4k">Mania 4K</option><option value="mania7k">Mania 7K</option><option value="taiko">Taiko</option><option value="catch">Catch</option></select><p class="hint">Escolha o estilo de animação que ficará na sobreposição.</p></div></div>' +
       '<div><div class="card">';
 
@@ -219,6 +219,11 @@
     mountEngine($('#home-fit'), c);
     bindTestBar(root);
     var modeSelect = $('#home-mode'); if (modeSelect) { modeSelect.value = S.settings.displayMode || 'classic'; modeSelect.onchange = function(e) { save({ displayMode: e.target.value }); flush(); renderHome(); toast('Modo: ' + e.target.options[e.target.selectedIndex].text); }; }
+    $('#home-stage').onpointermove = function (e) {
+      if (!engine || !engine.pointer) return;
+      var r = this.getBoundingClientRect();
+      engine.pointer((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height);
+    };
     $('#home-stage').onclick = function (e) {
       if (e.target.closest('[data-t]')) return;
       engine && engine.trigger('touch'); API.playSound('tick');
