@@ -116,9 +116,10 @@
    *  - up/left/right.png      pata direita no teclado (levantada / tecla esquerda / tecla direita)
    * ------------------------------------------------------------------------------------------ */
   var NS = 'http://www.w3.org/2000/svg';
-  var PAD = { x0: 62, y0: 228, x1: 205, y1: 286 };   // centro do mouse (área do mousepad)
-  var SHOULDER = { x: 198, y: 140 };                 // onde o braço sai da cabeça (lado sem contorno)
-  var MOUSE_W = 78, MOUSE_H = 51;
+  var PAD = { x0: 66, y0: 212, x1: 192, y1: 284 };   // centro do mouse (área do mousepad)
+  var ARM_A = { x: 174, y: 108 };                    // fim do contorno da cabeça: de onde parte a borda externa do braço
+  var ARM_B = { x: 238, y: 187 };                    // onde a cabeça encontra a linha da mesa: de onde parte a borda interna
+  var MOUSE_W = 100, MOUSE_H = 65;
 
   function svgEl(name, attrs) {
     var n = document.createElementNS(NS, name);
@@ -136,21 +137,15 @@
 
     var svg = svgEl('svg', { viewBox: '0 0 612 354', preserveAspectRatio: 'xMidYMid meet' });
     svg.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;display:block;pointer-events:none;';
-    // O contorno do braço não pode aparecer por cima da cabeça: recorta o interior da cabeça.
-    var defs = svgEl('defs', {});
-    var clip = svgEl('clipPath', { id: 'bcOsuArmClip' });
-    clip.appendChild(svgEl('path', { 'clip-rule': 'evenodd', d: 'M-50 -50H700V500H-50Z M178 -50H700V250L178 182Z' }));
-    defs.appendChild(clip);
-    svg.appendChild(defs);
 
     function img(file, w, h, x, y) { return svgEl('image', { href: R + file, x: x, y: y, width: w, height: h, preserveAspectRatio: 'none' }); }
     svg.appendChild(img('mousebg.png', 612, 354, 0, 0));
     this.mouse = svgEl('g', {});
     this.mouse.appendChild(img('mouse.png', MOUSE_W, MOUSE_H, -MOUSE_W / 2, -MOUSE_H / 2));
     svg.appendChild(this.mouse);
-    this.armOut = svgEl('path', { fill: 'none', stroke: '#141414', 'stroke-width': 40, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'clip-path': 'url(#bcOsuArmClip)' });
-    this.armIn = svgEl('path', { fill: 'none', stroke: '#ffffff', 'stroke-width': 34, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
-    svg.appendChild(this.armOut); svg.appendChild(this.armIn);
+    this.armFill = svgEl('path', { fill: '#ffffff', stroke: 'none' });
+    this.armLine = svgEl('path', { fill: 'none', stroke: '#000000', 'stroke-width': 6.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+    svg.appendChild(this.armFill); svg.appendChild(this.armLine);
     this.paws = { up: img('up.png', 612, 354, 0, 0), left: img('left.png', 612, 354, 0, 0), right: img('right.png', 612, 354, 0, 0) };
     this.paws.left.style.display = 'none'; this.paws.right.style.display = 'none';
     svg.appendChild(this.paws.up); svg.appendChild(this.paws.left); svg.appendChild(this.paws.right);
@@ -164,11 +159,17 @@
   OsuEngine.prototype.layout = function () {
     var mx = PAD.x0 + this.cx * (PAD.x1 - PAD.x0), my = PAD.y0 + this.cy * (PAD.y1 - PAD.y0);
     this.mouse.setAttribute('transform', 'translate(' + mx.toFixed(1) + ' ' + my.toFixed(1) + ') rotate(' + ((this.cx - 0.5) * 14).toFixed(1) + ')');
-    var hx = mx - 12, hy = my - 8;                                 // mão: parte de trás do mouse
-    var cx = (SHOULDER.x + hx) / 2 - 28, cy = (SHOULDER.y + hy) / 2 - 6; // cotovelo
-    var d = 'M' + SHOULDER.x + ' ' + SHOULDER.y + ' Q' + cx.toFixed(1) + ' ' + cy.toFixed(1) + ' ' + hx.toFixed(1) + ' ' + hy.toFixed(1);
-    this.armOut.setAttribute('d', d);
-    this.armIn.setAttribute('d', d);
+    // Braço como UMA forma contínua: larga no ombro (junto da cabeça) e afinando até a pata sobre o mouse.
+    var hx = mx + 2, hy = my - 15, r = 24;                         // centro e raio da ponta da pata
+    var lx = hx - r, ly = hy + 2, rx = hx + r, ry = hy + 2;         // lados esquerdo/direito da pata
+    var sh = Math.max(0, 150 - hx);                               // mão longe, à esquerda: a base do braço desce e mantém a espessura
+    var A = ARM_A, B = { x: ARM_B.x - sh * 0.25, y: ARM_B.y + sh * 0.45 };
+    var oc = (lx + (A.x - lx) * 0.12 - 6).toFixed(1) + ' ' + (A.y + (ly - A.y) * 0.5).toFixed(1);      // borda externa: abaulada, continua a curva da cabeça
+    var ic = (B.x - (B.x - rx) * 0.3).toFixed(1) + ' ' + (ry - 8).toFixed(1);                          // borda interna: desce quase reta e curva até a pata
+    var edge = 'M' + A.x + ' ' + A.y + ' Q' + oc + ' ' + lx.toFixed(1) + ' ' + ly.toFixed(1) +
+      ' A' + r + ' ' + r + ' 0 0 0 ' + rx.toFixed(1) + ' ' + ry.toFixed(1) + ' Q' + ic + ' ' + B.x + ' ' + B.y;
+    this.armLine.setAttribute('d', edge);
+    this.armFill.setAttribute('d', edge + ' L' + (B.x - 30) + ' ' + (B.y - 40) + ' L' + (A.x + 24) + ' ' + (A.y - 6) + ' Z');
   };
 
   OsuEngine.prototype.show = function (which) {
