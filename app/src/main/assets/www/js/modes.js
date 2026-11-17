@@ -117,8 +117,9 @@
    * ------------------------------------------------------------------------------------------ */
   var NS = 'http://www.w3.org/2000/svg';
   var PAD = { x0: 66, y0: 212, x1: 192, y1: 284 };   // centro do mouse (área do mousepad)
-  var ARM_A = { x: 174, y: 108 };                    // fim do contorno da cabeça: de onde parte a borda externa do braço
-  var ARM_B = { x: 238, y: 187 };                    // onde a cabeça encontra a linha da mesa: de onde parte a borda interna
+  var SHOULDER = { x: 232, y: 140 };                 // ombro: dentro da cabeça, onde o braço nasce
+  var HEAD_A = { x: 175, y: 108 };                   // onde o contorno da cabeça (no sprite) termina e o braço continua
+  var W0 = 74, W1 = 60;                             // largura do braço na base e na pata
   var MOUSE_W = 100, MOUSE_H = 65;
 
   function svgEl(name, attrs) {
@@ -143,9 +144,16 @@
     this.mouse = svgEl('g', {});
     this.mouse.appendChild(img('mouse.png', MOUSE_W, MOUSE_H, -MOUSE_W / 2, -MOUSE_H / 2));
     svg.appendChild(this.mouse);
+    // O braço só aparece FORA do interior da cabeça (máscara gerada do próprio sprite, levemente reduzida):
+    // assim o contorno do braço continua o da cabeça e nunca cobre o rosto.
+    var defs = svgEl('defs', {});
+    var mask = svgEl('mask', { id: 'bcOsuArmMask', maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: 612, height: 354 });
+    mask.appendChild(img('armmask.png', 612, 354, 0, 0));
+    defs.appendChild(mask); svg.appendChild(defs);
     this.armFill = svgEl('path', { fill: '#ffffff', stroke: 'none' });
-    this.armLine = svgEl('path', { fill: 'none', stroke: '#000000', 'stroke-width': 6.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
-    svg.appendChild(this.armFill); svg.appendChild(this.armLine);
+    this.armLine = svgEl('path', { fill: 'none', stroke: '#000000', 'stroke-width': 6.5, 'stroke-linejoin': 'round' });
+    var armG = svgEl('g', { mask: 'url(#bcOsuArmMask)' });
+    armG.appendChild(this.armFill); armG.appendChild(this.armLine); svg.appendChild(armG);
     this.paws = { up: img('up.png', 612, 354, 0, 0), left: img('left.png', 612, 354, 0, 0), right: img('right.png', 612, 354, 0, 0) };
     this.paws.left.style.display = 'none'; this.paws.right.style.display = 'none';
     svg.appendChild(this.paws.up); svg.appendChild(this.paws.left); svg.appendChild(this.paws.right);
@@ -159,17 +167,31 @@
   OsuEngine.prototype.layout = function () {
     var mx = PAD.x0 + this.cx * (PAD.x1 - PAD.x0), my = PAD.y0 + this.cy * (PAD.y1 - PAD.y0);
     this.mouse.setAttribute('transform', 'translate(' + mx.toFixed(1) + ' ' + my.toFixed(1) + ') rotate(' + ((this.cx - 0.5) * 14).toFixed(1) + ')');
-    // Braço como UMA forma contínua: larga no ombro (junto da cabeça) e afinando até a pata sobre o mouse.
-    var hx = mx + 2, hy = my - 15, r = 24;                         // centro e raio da ponta da pata
-    var lx = hx - r, ly = hy + 2, rx = hx + r, ry = hy + 2;         // lados esquerdo/direito da pata
-    var sh = Math.max(0, 150 - hx);                               // mão longe, à esquerda: a base do braço desce e mantém a espessura
-    var A = ARM_A, B = { x: ARM_B.x - sh * 0.25, y: ARM_B.y + sh * 0.45 };
-    var oc = (lx + (A.x - lx) * 0.12 - 6).toFixed(1) + ' ' + (A.y + (ly - A.y) * 0.5).toFixed(1);      // borda externa: abaulada, continua a curva da cabeça
-    var ic = (B.x - (B.x - rx) * 0.3).toFixed(1) + ' ' + (ry - 8).toFixed(1);                          // borda interna: desce quase reta e curva até a pata
-    var edge = 'M' + A.x + ' ' + A.y + ' Q' + oc + ' ' + lx.toFixed(1) + ' ' + ly.toFixed(1) +
-      ' A' + r + ' ' + r + ' 0 0 0 ' + rx.toFixed(1) + ' ' + ry.toFixed(1) + ' Q' + ic + ' ' + B.x + ' ' + B.y;
-    this.armLine.setAttribute('d', edge);
-    this.armFill.setAttribute('d', edge + ' L' + (B.x - 30) + ' ' + (B.y - 40) + ' L' + (A.x + 24) + ' ' + (A.y - 6) + ' Z');
+    // Braço: contorno de largura contínua (grosso na base, mais fino na pata) ao longo de uma curva
+    // do ombro (dentro da cabeça) até a pata sobre o mouse. Nunca vira uma “cunha” fina.
+    var hx = mx + 2, hy = my - 14;
+    var S = SHOULDER;
+    var C = { x: hx + (S.x - hx) * 0.30, y: S.y + (hy - S.y) * 0.22 };            // cotovelo: arco abaulado para cima/esquerda
+    var N = 14, L = [], Rr = [], i, t, u, px, py, dx, dy, len, w, nx, ny;
+    for (i = 0; i <= N; i++) {
+      t = i / N; u = 1 - t;
+      px = u * u * S.x + 2 * u * t * C.x + t * t * hx;
+      py = u * u * S.y + 2 * u * t * C.y + t * t * hy;
+      dx = 2 * u * (C.x - S.x) + 2 * t * (hx - C.x);
+      dy = 2 * u * (C.y - S.y) + 2 * t * (hy - C.y);
+      len = Math.sqrt(dx * dx + dy * dy) || 1;
+      w = (W0 + (W1 - W0) * t) / 2;
+      nx = -dy / len; ny = dx / len;
+      var lx = px + nx * w, ly = py + ny * w;
+      if (t < 0.4) { var e = t / 0.4; e = e * e * (3 - 2 * e); lx = HEAD_A.x + (lx - HEAD_A.x) * e; ly = HEAD_A.y + (ly - HEAD_A.y) * e; }  // a borda externa nasce onde o contorno da cabeça termina
+      L.push([lx, ly]); Rr.push([px - nx * w, py - ny * w]);
+    }
+    var pts = function (a) { return a.map(function (p) { return p[0].toFixed(1) + ' ' + p[1].toFixed(1); }); };
+    var rr = (W1 / 2).toFixed(1), last = Rr[N];
+    var d = 'M' + pts(L).join(' L') + ' A' + rr + ' ' + rr + ' 0 0 ' + (L[N][0] <= Rr[N][0] ? 0 : 1) + ' ' + last[0].toFixed(1) + ' ' + last[1].toFixed(1) +
+      ' L' + pts(Rr).reverse().join(' L');
+    this.armLine.setAttribute('d', d);
+    this.armFill.setAttribute('d', d + ' Z');
   };
 
   OsuEngine.prototype.show = function (which) {
