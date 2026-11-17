@@ -56,6 +56,17 @@ class InputZones(
         const val KEYS = "keys"
         private val DEFAULT_MOUSE = doubleArrayOf(0.03, 0.55, 0.42, 0.38)
         private val DEFAULT_KEYS = doubleArrayOf(0.55, 0.55, 0.42, 0.38)
+
+        /** Retângulo [x, y, w, h] (frações da área útil) da área [kind] no modo atual, com padrão. */
+        fun rectFor(settings: JSONObject, kind: String): DoubleArray {
+            val mode = settings.optString("displayMode", "classic")
+            val a = settings.optJSONObject("zones")?.optJSONObject(mode)?.optJSONArray(kind)
+            if (a != null && a.length() == 4) {
+                val r = DoubleArray(4) { a.optDouble(it, Double.NaN) }
+                if (r.none { it.isNaN() }) return r
+            }
+            return if (kind == MOUSE) DEFAULT_MOUSE.copyOf() else DEFAULT_KEYS.copyOf()
+        }
     }
 
     private class Zone(val kind: String) {

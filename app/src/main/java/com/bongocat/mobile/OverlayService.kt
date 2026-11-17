@@ -102,6 +102,8 @@ class OverlayService : Service(), InputZones.Listener {
     private var ptrX = 0.5f
     private var ptrY = 0.5f
     private var lastPadAt = 0L
+    private var realW = 1080
+    private var realH = 1920
 
     private var pageReady = false
     private var screenOn = true
@@ -273,7 +275,7 @@ class OverlayService : Service(), InputZones.Listener {
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
         // Com as áreas de toque ativas, os toques nelas contariam como "fora do personagem": não observar.
-        val zonesTouchable = settings.optBoolean("zonesOn", false) && !settings.optBoolean("zonesVisualOnly", false)
+        val zonesTouchable = settings.optBoolean("zonesOn", false) && !settings.optBoolean("zonesVisualOnly", false) && !virtualZones()
         if (settings.optBoolean("reactOutside", true) && !zonesTouchable) {
             f = f or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
         }
@@ -403,6 +405,8 @@ class OverlayService : Service(), InputZones.Listener {
         display.getRealMetrics(dm)
         val w = dm.widthPixels
         val h = dm.heightPixels
+        realW = w
+        realH = h
         var l = 0
         var t = 0
         var r = w
@@ -507,7 +511,8 @@ class OverlayService : Service(), InputZones.Listener {
 
         applyPosition()
         pushConfig()
-        zones?.apply(settings, cachedBounds, modeActions(settings.optString("displayMode", "classic")).size)
+        val zoneSettings = if (virtualZones()) JSONObject(settings.toString()).put("zonesVisualOnly", true) else settings
+        zones?.apply(zoneSettings, cachedBounds, modeActions(settings.optString("displayMode", "classic")).size)
         zones?.setVisible(!hidden)
         updateAdvancedInput()
     }
@@ -677,6 +682,67 @@ class OverlayService : Service(), InputZones.Listener {
 
     private var advanced: ShizukuInput? = null
 
+    @Suppress("DEPRECATION")
+    private fun screenRotation(): Int = try {
+        (getSystemService(DISPLAY_SERVICE) as DisplayManager).getDisplay(Display.DEFAULT_DISPLAY).rotation
+    } catch (_: Exception) {
+        0
+    }
+
+    /** Áreas virtuais: Shizuku ativo e permitido -> as áreas só são desenhadas e os toques são lidos sem bloqueá-los. */
+    private fun virtualZones(): Boolean =
+        settings.optBoolean("advancedInput", false) && settings.optBoolean("zonesVirtual", true) &&
+            settings.optBoolean("zonesOn", false) && ShizukuInput.granted()
+
+    private val tRegion = IntArray(10)
+    private val tLastX = FloatArray(10)
+    private val tLastY = FloatArray(10)
+    private val tDownAt = LongArray(10)
+    private val tMoved = BooleanArray(10)
+
+    private fun virtualTouch(slot: Int, action: Int, nx: Float, ny: Float) {
+        if (hidden || !pageReady || !virtualZones() || !settings.optBoolean("zonesLocked", true)) return
+        val i = slot.coerceIn(0, 9)
+        val px = nx * realW
+        val py = ny * realH
+        val b = cachedBounds
+        fun inside(kind: String): Boolean {
+            val r = InputZones.rectFor(settings, kind)
+            val l = b.left + r[0] * b.width()
+            val t = b.top + r[1] * b.height()
+            return px >= l && px <= l + r[2] * b.width() && py >= t && py <= t + r[3] * b.height()
+        }
+        when (action) {
+            0 -> {
+                tRegion[i] = when {
+                    inside(InputZones.MOUSE) -> 1
+                    inside(InputZones.KEYS) -> 2
+                    else -> 0
+                }
+                tLastX[i] = px; tLastY[i] = py; tMoved[i] = false; tDownAt[i] = SystemClock.uptimeMillis()
+                if (tRegion[i] == 2) {
+                    val r = InputZones.rectFor(settings, InputZones.KEYS)
+                    val lanes = modeActions(settings.optString("displayMode", "classic")).size
+                    val l = b.left + r[0] * b.width()
+                    val lane = ((px - l) / max(1f, (r[2] * b.width()).toFloat()) * lanes).toInt().coerceIn(0, lanes - 1)
+                    onLane(lane, lanes)
+                }
+            }
+            1 -> if (tRegion[i] == 1) {
+                val r = InputZones.rectFor(settings, InputZones.MOUSE)
+                val dx = px - tLastX[i]
+                val dy = py - tLastY[i]
+                if (abs(dx) + abs(dy) > 2f) tMoved[i] = true
+                tLastX[i] = px; tLastY[i] = py
+                onPadDrag(dx, dy, max(1, (r[2] * b.width()).toInt()), max(1, (r[3] * b.height()).toInt()))
+            }
+            2 -> {
+                if (tRegion[i] == 1 && !tMoved[i] && SystemClock.uptimeMillis() - tDownAt[i] < 350) onPadClick(false)
+                tRegion[i] = 0
+            }
+        }
+    }
+
     private fun updateAdvancedInput() {
         val want = settings.optBoolean("advancedInput", false)
         if (want && advanced != null && advanced?.alive != true && ShizukuInput.granted()) {
@@ -693,9 +759,10 @@ class OverlayService : Service(), InputZones.Listener {
                     }
                 }
                 override fun onButton(right: Boolean) { handler.post { emit(if (right) "clickRight" else "clickLeft") } }
-                override fun onTouch() { handler.post { emit("touch") } }
+                override fun onTouch() { handler.post { if (!virtualZones()) emit("touch") } }
+                override fun onTouchPoint(slot: Int, action: Int, nx: Float, ny: Float) { handler.post { virtualTouch(slot, action, nx, ny) } }
                 override fun onLinuxKey(androidKeyCode: Int) { onMappedKey(androidKeyCode) }
-            })
+            }, { screenRotation() })
             advanced = reader
             reader.start()
         } else if (!want && advanced != null) {

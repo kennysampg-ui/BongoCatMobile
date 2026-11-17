@@ -596,6 +596,7 @@
       '<div class="field"><div class="row between"><div class="grow"><b>Shizuku</b></div><span class="chip ' + (zk.running ? 'on' : 'off') + '">' + (zk.running ? 'Ativo' : (zk.installed ? 'Instalado, desligado' : 'Não instalado')) + '</span></div></div>' +
       '<div class="field"><div class="row between"><div class="grow"><b>Permissão para o Bongo Cat</b></div><span class="chip ' + (zk.granted ? 'on' : 'off') + '">' + (zk.granted ? 'Concedida' : 'Pendente') + '</span></div>' +
       '<button class="btn sm" id="btn-shizuku" style="margin-top:10px">' + (zk.running ? (zk.granted ? 'Permissão concedida' : 'Conceder permissão') : (zk.installed ? 'Abrir o Shizuku' : 'Baixar o Shizuku')) + '</button></div>' +
+      switchField('zvirt', 'Áreas virtuais (não bloqueiam o jogo)', 'Com o Shizuku, as áreas de toque só são desenhadas e o app lê seus toques por baixo: o jogo continua recebendo tudo, inclusive o analógico. Desligue para voltar às áreas que capturam o toque.', s.zonesVirtual !== false) +
       switchField('adv', 'Ativar leitura global de entrada', 'Só funciona com o Shizuku ativo e a permissão concedida.', s.advancedInput) +
       rangeField('advsens', 'Sensibilidade do mouse', 25, 400, 5, Math.round((s.advSens || 1) * 100), function (v) { return (v / 100).toFixed(2) + '×'; }) + '</div>';
 
@@ -639,6 +640,7 @@
     $('#s-zedit').onchange = function (e) { save({ zonesLocked: !e.target.checked }); };
     $('#s-zvis').onchange = function (e) { save({ zonesVisualOnly: e.target.checked }); };
     $('#s-desk').onchange = function (e) { save({ transparentDesk: e.target.checked }); };
+    $('#s-zvirt').onchange = function (e) { save({ zonesVirtual: e.target.checked }); };
     $('#s-adv').onchange = function (e) {
       save({ advancedInput: e.target.checked });
       if (e.target.checked && !(S.shizuku && S.shizuku.granted)) toast('Conceda a permissão do Shizuku abaixo para funcionar.');

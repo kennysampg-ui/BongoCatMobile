@@ -31,6 +31,7 @@ object Defaults {
         put("zonesAlpha", 0.35)        // visibilidade das áreas
         put("zones", JSONObject())     // { modo: { mouse:[x,y,w,h], keys:[x,y,w,h] } } em frações da tela
         put("advancedInput", false)    // leitura global de entrada via Shizuku (opcional)
+        put("zonesVirtual", true)      // com o Shizuku: áreas só desenhadas, toques lidos sem bloquear o jogo
         put("advSens", 1.0)
         put("displayMode", "classic") // classic | osu | mania4k | mania7k | taiko | catch
         put("keyBindings", JSONObject().apply {
@@ -120,6 +121,7 @@ class SettingsStore(context: Context) {
         o.put("zonesVisualOnly", o.optBoolean("zonesVisualOnly", false))
         o.put("zonesAlpha", num(o, "zonesAlpha", 0.35, 0.1, 0.9))
         o.put("advancedInput", o.optBoolean("advancedInput", false))
+        o.put("zonesVirtual", o.optBoolean("zonesVirtual", true))
         o.put("advSens", num(o, "advSens", 1.0, 0.25, 4.0))
         o.put("zones", sanitizeZones(o.optJSONObject("zones")))
 

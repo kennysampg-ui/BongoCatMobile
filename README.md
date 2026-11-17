@@ -135,6 +135,7 @@ Dica de desenvolvimento: abrir `app/src/main/assets/www/index.html` num navegado
 - **Modo avançado (opcional, Shizuku)**: com o app Shizuku ativo e a permissão concedida, o Bongo Cat lê movimento/botões do mouse,
   “houve toque” e teclas físicas em qualquer app, sem bloquear nada. Lê só: movimento relativo, botões, BTN_TOUCH e códigos de teclas
   comparados com os atalhos; nada é guardado nem enviado. Não foi testado em aparelho real; depende de Shizuku/Depuração sem fio.
+- **Áreas virtuais** (com o Shizuku): as áreas só são desenhadas (não capturam toque) e o app lê as coordenadas dos seus toques por baixo, então o analógico e os toques do jogo continuam funcionando. Dentro da área do mouse, arrastar o dedo move o mouse do gato; na do teclado, cada faixa aciona uma pata.
 - **Mesa transparente** no modo osu!.
 
 ## Problemas comuns

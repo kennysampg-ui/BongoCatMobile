@@ -22,7 +22,7 @@
 
   var DEFAULTS = {
     characterId: 'cat-original', size: 1, opacity: 1, speed: 1, posX: 0.85, posY: 0.65, sound: true, volume: 0.7,
-    forcedAnim: 'auto', batterySaver: false, reactOutside: true, favorites: [], transparentDesk: true, zonesOn: false, zonesLocked: true, zonesVisualOnly: false, zonesAlpha: 0.35, zones: {}, advancedInput: false, advSens: 1
+    forcedAnim: 'auto', batterySaver: false, reactOutside: true, favorites: [], transparentDesk: true, zonesOn: false, zonesLocked: true, zonesVisualOnly: false, zonesAlpha: 0.35, zones: {}, advancedInput: false, zonesVirtual: true, advSens: 1
   };
 
   var api;

@@ -17,12 +17,15 @@ import rikka.shizuku.Shizuku
  *  - teclas apertadas, convertidas para um código numérico e comparadas com os atalhos configurados.
  * Nada é guardado, montado em texto ou enviado (o app nem tem permissão de Internet).
  */
-class ShizukuInput(private val listener: Listener) {
+class ShizukuInput(private val listener: Listener, private val rotation: () -> Int = { 0 }) {
 
     interface Listener {
         fun onMove(dx: Int, dy: Int)
         fun onButton(right: Boolean)
         fun onTouch()
+
+        /** Ponto de toque na tela: [action] 0 = tocou, 1 = moveu, 2 = soltou; (nx, ny) = 0..1 já na orientação atual da tela. */
+        fun onTouchPoint(slot: Int, action: Int, nx: Float, ny: Float)
 
         /** Código de tecla do Android (mesmo formato do mapeamento de teclas). */
         fun onLinuxKey(androidKeyCode: Int)
@@ -109,20 +112,92 @@ class ShizukuInput(private val listener: Listener) {
         thread = null
     }
 
-    private fun spawn(): Process? = try {
+    private fun spawn(vararg cmd: String): Process? = try {
         // newProcess é privado nas versões recentes da API; a reflexão funciona em todas.
         val m = Shizuku::class.java.getDeclaredMethod(
             "newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java
         )
         m.isAccessible = true
-        m.invoke(null, arrayOf("getevent", "-l"), null, null) as Process
+        m.invoke(null, arrayOf(*cmd), null, null) as Process
     } catch (_: Throwable) {
         null
     }
 
+    private class Dev {
+        var maxX = 0
+        var maxY = 0
+        var direct = false
+        val x = FloatArray(10)
+        val y = FloatArray(10)
+        val down = BooleanArray(10)
+        val up = BooleanArray(10)
+        val dirty = BooleanArray(10)
+        val active = BooleanArray(10)
+        var slot = 0
+    }
+
+    private val devs = HashMap<String, Dev>()
+
+    /** Lê os limites de coordenadas das telas de toque ("getevent -lp"). Só números, nenhum evento. */
+    private fun probe() {
+        val p = spawn("getevent", "-lp") ?: return
+        try {
+            var cur: Dev? = null
+            p.inputStream.bufferedReader().use { r ->
+                while (true) {
+                    val line = r.readLine() ?: break
+                    val t = line.trim()
+                    if (t.startsWith("add device")) {
+                        val path = t.substringAfter(": ", "").trim()
+                        cur = Dev().also { devs[path] = it }
+                    } else if (t.contains("INPUT_PROP_DIRECT")) {
+                        cur?.direct = true
+                    } else if (t.contains("ABS_MT_POSITION_X")) {
+                        cur?.maxX = Regex("max\\s+(\\d+)").find(t)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    } else if (t.contains("ABS_MT_POSITION_Y")) {
+                        cur?.maxY = Regex("max\\s+(\\d+)").find(t)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    }
+                }
+            }
+        } catch (_: Throwable) {
+        } finally {
+            try {
+                p.destroy()
+            } catch (_: Throwable) {
+            }
+        }
+    }
+
+    private fun mapRotation(nx: Float, ny: Float): FloatArray = when (rotation()) {
+        1 -> floatArrayOf(ny, 1f - nx)
+        2 -> floatArrayOf(1f - nx, 1f - ny)
+        3 -> floatArrayOf(1f - ny, nx)
+        else -> floatArrayOf(nx, ny)
+    }
+
+    private fun flushTouch(d: Dev) {
+        for (i in 0 until 10) {
+            if (!d.dirty[i]) continue
+            d.dirty[i] = false
+            val m = mapRotation((d.x[i] / d.maxX).coerceIn(0f, 1f), (d.y[i] / d.maxY).coerceIn(0f, 1f))
+            if (d.up[i]) {
+                d.up[i] = false
+                if (d.active[i]) listener.onTouchPoint(i, 2, m[0], m[1])
+                d.active[i] = false
+            } else if (!d.active[i]) {
+                d.active[i] = true
+                d.down[i] = false
+                listener.onTouchPoint(i, 0, m[0], m[1])
+            } else {
+                listener.onTouchPoint(i, 1, m[0], m[1])
+            }
+        }
+    }
+
     private fun loop() {
         if (!granted()) return
-        val p = spawn() ?: return
+        probe()
+        val p = spawn("getevent", "-l") ?: return
         process = p
         var relX = 0
         var relY = 0
@@ -136,12 +211,27 @@ class ShizukuInput(private val listener: Listener) {
                     val type = tok[1]
                     val code = tok[2]
                     val value = tok[3]
+                    val dev = devs[tok[0].trimEnd(':')]
+                    val touch = dev != null && dev.direct && dev.maxX > 0 && dev.maxY > 0
                     when (type) {
+                        "EV_ABS" -> if (touch && dev != null) {
+                            val v = value.toLongOrNull(16)?.toInt() ?: continue
+                            when (code) {
+                                "ABS_MT_SLOT" -> dev.slot = v.coerceIn(0, 9)
+                                "ABS_MT_TRACKING_ID" -> {
+                                    dev.dirty[dev.slot] = true
+                                    if (v == -1) dev.up[dev.slot] = true
+                                }
+                                "ABS_MT_POSITION_X" -> { dev.x[dev.slot] = v.toFloat(); dev.dirty[dev.slot] = true }
+                                "ABS_MT_POSITION_Y" -> { dev.y[dev.slot] = v.toFloat(); dev.dirty[dev.slot] = true }
+                            }
+                        }
                         "EV_REL" -> {
                             val v = value.toLongOrNull(16)?.toInt() ?: continue
                             if (code == "REL_X") relX += v else if (code == "REL_Y") relY += v
                         }
                         "EV_SYN" -> {
+                            if (touch && dev != null) flushTouch(dev)
                             if (relX != 0 || relY != 0) {
                                 listener.onMove(relX, relY)
                                 relX = 0
