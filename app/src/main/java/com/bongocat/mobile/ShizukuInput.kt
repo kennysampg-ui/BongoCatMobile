@@ -17,7 +17,11 @@ import rikka.shizuku.Shizuku
  *  - teclas apertadas, convertidas para um código numérico e comparadas com os atalhos configurados.
  * Nada é guardado, montado em texto ou enviado (o app nem tem permissão de Internet).
  */
-class ShizukuInput(private val listener: Listener, private val rotation: () -> Int = { 0 }) {
+class ShizukuInput(
+    private val listener: Listener,
+    private val rotation: () -> Int = { 0 },
+    private val apkPath: String = ""
+) {
 
     interface Listener {
         fun onMove(dx: Int, dy: Int)
@@ -26,6 +30,9 @@ class ShizukuInput(private val listener: Listener, private val rotation: () -> I
 
         /** Ponto de toque na tela: [action] 0 = tocou, 1 = moveu, 2 = soltou; (nx, ny) = 0..1 já na orientação atual da tela. */
         fun onTouchPoint(slot: Int, action: Int, nx: Float, ny: Float)
+
+        /** Toque visto pelo monitor de entrada do sistema (inclui toques gerados por outros apps), em pixels da tela. */
+        fun onScreenPoint(slot: Int, action: Int, px: Float, py: Float)
 
         /** Código de tecla do Android (mesmo formato do mapeamento de teclas). */
         fun onLinuxKey(androidKeyCode: Int)
@@ -98,6 +105,17 @@ class ShizukuInput(private val listener: Listener, private val rotation: () -> I
     @Volatile var clicks = 0
     @Volatile var touches = 0
     @Volatile var linesRead = 0
+    @Volatile var monitorLines = 0
+    @Volatile var monitorOk = false
+    @Volatile var monitorError = ""
+
+    @Volatile
+    private var monitorSeenAt = 0L
+
+    @Volatile
+    private var monitorProcess: Process? = null
+
+    private fun monitorActive(): Boolean = System.currentTimeMillis() - monitorSeenAt < 3000
 
     fun start() {
         if (alive) return
@@ -106,6 +124,9 @@ class ShizukuInput(private val listener: Listener, private val rotation: () -> I
         t.isDaemon = true
         thread = t
         t.start()
+        val mt = Thread({ monitorLoop() }, "bongo-shizuku-monitor")
+        mt.isDaemon = true
+        mt.start()
     }
 
     fun stop() {
@@ -115,6 +136,11 @@ class ShizukuInput(private val listener: Listener, private val rotation: () -> I
         } catch (_: Throwable) {
         }
         process = null
+        try {
+            monitorProcess?.destroy()
+        } catch (_: Throwable) {
+        }
+        monitorProcess = null
         thread?.interrupt()
         thread = null
     }
@@ -186,6 +212,7 @@ class ShizukuInput(private val listener: Listener, private val rotation: () -> I
         for (i in 0 until 10) {
             if (!d.dirty[i]) continue
             d.dirty[i] = false
+            if (monitorActive()) { d.up[i] = false; d.active[i] = false; continue } // o monitor já cobre os toques
             val m = mapRotation((d.x[i] / d.maxX).coerceIn(0f, 1f), (d.y[i] / d.maxY).coerceIn(0f, 1f))
             if (d.up[i]) {
                 d.up[i] = false
@@ -197,6 +224,60 @@ class ShizukuInput(private val listener: Listener, private val rotation: () -> I
                 listener.onTouchPoint(i, 0, m[0], m[1])
             } else {
                 listener.onTouchPoint(i, 1, m[0], m[1])
+            }
+        }
+    }
+
+    /**
+     * Monitor de entrada (experimental): roda MonitorMain com a identidade "shell" e recebe linhas
+     * "T ação id x y". Cobre toques reais e os gerados por apps de mapeamento, sem bloquear nada.
+     */
+    private fun monitorLoop() {
+        if (apkPath.isEmpty() || !granted()) return
+        val p = spawn("app_process", "-Djava.class.path=$apkPath", "/system/bin", "com.bongocat.mobile.MonitorMain")
+        if (p == null) {
+            monitorError = "não foi possível iniciar o monitor"
+            return
+        }
+        monitorProcess = p
+        Thread({
+            try {
+                p.errorStream.bufferedReader().use { r ->
+                    while (true) {
+                        val l = r.readLine() ?: break
+                        if (monitorError.isEmpty() && l.isNotBlank()) monitorError = l.take(140)
+                    }
+                }
+            } catch (_: Throwable) {
+            }
+        }, "bongo-shizuku-monitor-err").also { it.isDaemon = true }.start()
+        try {
+            p.inputStream.bufferedReader().use { r ->
+                while (!stopped) {
+                    val l = r.readLine() ?: break
+                    if (l.startsWith("T ")) {
+                        val t = l.split(' ')
+                        if (t.size >= 5) {
+                            val a = t[1].toIntOrNull() ?: continue
+                            val id = t[2].toIntOrNull() ?: continue
+                            val x = t[3].toFloatOrNull() ?: continue
+                            val y = t[4].toFloatOrNull() ?: continue
+                            monitorSeenAt = System.currentTimeMillis()
+                            monitorLines++
+                            listener.onScreenPoint(id.coerceIn(0, 9), a, x, y)
+                        }
+                    } else if (l == "OK") {
+                        monitorOk = true
+                    } else if (l.startsWith("ERR")) {
+                        monitorError = l.take(160)
+                    }
+                }
+            }
+        } catch (_: Throwable) {
+        } finally {
+            try {
+                p.destroy()
+            } catch (_: Throwable) {
             }
         }
     }

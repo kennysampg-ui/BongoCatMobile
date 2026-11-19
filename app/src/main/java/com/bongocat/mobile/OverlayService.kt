@@ -692,6 +692,9 @@ class OverlayService : Service(), InputZones.Listener {
             .put("moves", a?.moves ?: 0)
             .put("clicks", a?.clicks ?: 0)
             .put("touches", a?.touches ?: 0)
+            .put("monitorOk", a?.monitorOk ?: false)
+            .put("monitorLines", a?.monitorLines ?: 0)
+            .put("monitorError", a?.monitorError ?: "")
     }
 
     @Suppress("DEPRECATION")
@@ -773,8 +776,9 @@ class OverlayService : Service(), InputZones.Listener {
                 override fun onButton(right: Boolean) { handler.post { emit(if (right) "clickRight" else "clickLeft") } }
                 override fun onTouch() { handler.post { if (!virtualZones()) emit("touch") } }
                 override fun onTouchPoint(slot: Int, action: Int, nx: Float, ny: Float) { handler.post { virtualTouch(slot, action, nx, ny) } }
+                override fun onScreenPoint(slot: Int, action: Int, px: Float, py: Float) { handler.post { virtualTouch(slot, action, px / max(1, realW), py / max(1, realH)) } }
                 override fun onLinuxKey(androidKeyCode: Int) { onMappedKey(androidKeyCode) }
-            }, { screenRotation() })
+            }, { screenRotation() }, applicationInfo.sourceDir)
             advanced = reader
             reader.start()
         } else if (!want && advanced != null) {

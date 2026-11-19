@@ -643,17 +643,18 @@
     $('#s-zedit').onchange = function (e) { save({ zonesLocked: !e.target.checked }); };
     $('#s-zvis').onchange = function (e) { save({ zonesVisualOnly: e.target.checked }); };
     $('#s-desk').onchange = function (e) { save({ transparentDesk: e.target.checked }); };
-    var statBase = { lines: 0, keys: 0, moves: 0, clicks: 0, touches: 0 };
+    var statBase = { lines: 0, keys: 0, moves: 0, clicks: 0, touches: 0, monitorLines: 0 };
     function showStats() {
       var st = (API.getState() || {}).inputStats || {};
       var d = function (k) { return Math.max(0, (st[k] || 0) - (statBase[k] || 0)); };
       $('#inp-stats').innerHTML = (st.alive ? '<span class="chip on">Lendo entrada</span>' : '<span class="chip off">Parado (Shizuku/permissão/modo desligado)</span>') +
         '<br>Linhas recebidas do sistema: <b>' + d('lines') + '</b><br>Teclas mapeadas: <b>' + d('keys') + '</b><br>Movimentos do mouse: <b>' + d('moves') +
-        '</b><br>Cliques do mouse: <b>' + d('clicks') + '</b><br>Toques na tela: <b>' + d('touches') + '</b>';
+        '</b><br>Cliques do mouse: <b>' + d('clicks') + '</b><br>Toques na tela: <b>' + d('touches') + '</b>' +
+        '<br>Monitor de toques (inclui toques de outros apps): ' + (st.monitorOk ? '<span class="chip on">Ativo</span> <b>' + d('monitorLines') + '</b> eventos' : '<span class="chip off">Não iniciou</span>') + (st.monitorError ? '<br><span class="muted">' + esc(st.monitorError) + '</span>' : '');
     }
     showStats();
     $('#btn-stat-refresh').onclick = showStats;
-    $('#btn-stat-zero').onclick = function () { var st = (API.getState() || {}).inputStats || {}; statBase = { lines: st.lines || 0, keys: st.keys || 0, moves: st.moves || 0, clicks: st.clicks || 0, touches: st.touches || 0 }; showStats(); };
+    $('#btn-stat-zero').onclick = function () { var st = (API.getState() || {}).inputStats || {}; statBase = { lines: st.lines || 0, keys: st.keys || 0, moves: st.moves || 0, clicks: st.clicks || 0, touches: st.touches || 0, monitorLines: st.monitorLines || 0 }; showStats(); };
     $('#s-zvirt').onchange = function (e) { save({ zonesVirtual: e.target.checked }); };
     $('#s-adv').onchange = function (e) {
       save({ advancedInput: e.target.checked });
