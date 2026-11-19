@@ -600,6 +600,7 @@
       '<div class="field"><b>Teste de entrada</b><p class="hint">Com o modo avançado ligado, mexa o mouse, aperte teclas e toque na tela (inclusive com o Panda Mouse ligado) e toque em Atualizar. Se um número ficar em 0, o Android não entregou aquele tipo de evento ao Bongo Cat.</p>' +
       '<div id="inp-stats" class="small"></div><div class="row" style="margin-top:8px"><button class="btn sm" id="btn-stat-refresh">Atualizar</button><button class="btn sm" id="btn-stat-zero">Zerar</button></div></div>' +
       switchField('zvirt', 'Áreas virtuais (não bloqueiam o jogo)', 'Com o Shizuku, as áreas de toque só são desenhadas e o app lê seus toques por baixo: o jogo continua recebendo tudo, inclusive o analógico. Desligue para voltar às áreas que capturam o toque.', s.zonesVirtual !== false) +
+      switchField('zclick', 'Toque simples na área do mouse vira clique', 'Desligado: só o arrastar move o mouse do gato (evita cliques falsos quando o jogo recebe toques ali).', s.zonesPadClick) +
       switchField('adv', 'Ativar leitura global de entrada', 'Só funciona com o Shizuku ativo e a permissão concedida.', s.advancedInput) +
       rangeField('advsens', 'Sensibilidade do mouse', 25, 400, 5, Math.round((s.advSens || 1) * 100), function (v) { return (v / 100).toFixed(2) + '×'; }) + '</div>';
 
@@ -655,6 +656,7 @@
     showStats();
     $('#btn-stat-refresh').onclick = showStats;
     $('#btn-stat-zero').onclick = function () { var st = (API.getState() || {}).inputStats || {}; statBase = { lines: st.lines || 0, keys: st.keys || 0, moves: st.moves || 0, clicks: st.clicks || 0, touches: st.touches || 0, monitorLines: st.monitorLines || 0 }; showStats(); };
+    $('#s-zclick').onchange = function (e) { save({ zonesPadClick: e.target.checked }); };
     $('#s-zvirt').onchange = function (e) { save({ zonesVirtual: e.target.checked }); };
     $('#s-adv').onchange = function (e) {
       save({ advancedInput: e.target.checked });

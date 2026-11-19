@@ -752,7 +752,7 @@ class OverlayService : Service(), InputZones.Listener {
                 onPadDrag(dx, dy, max(1, (r[2] * b.width()).toInt()), max(1, (r[3] * b.height()).toInt()))
             }
             2 -> {
-                if (tRegion[i] == 1 && !tMoved[i] && SystemClock.uptimeMillis() - tDownAt[i] < 350) onPadClick(false)
+                if (tRegion[i] == 1 && !tMoved[i] && settings.optBoolean("zonesPadClick", false) && SystemClock.uptimeMillis() - tDownAt[i] < 350) onPadClick(false)
                 tRegion[i] = 0
             }
         }
