@@ -202,6 +202,7 @@ class MainActivity : ComponentActivity() {
         }
         o.put("notifications", notif)
         o.put("a11y", JSONObject().put("enabled", isAccessibilityEnabled()))
+        o.put("inputStats", svc?.inputStats() ?: JSONObject())
         o.put(
             "shizuku",
             JSONObject()

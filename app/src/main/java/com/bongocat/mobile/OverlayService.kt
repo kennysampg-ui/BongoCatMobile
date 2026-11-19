@@ -682,6 +682,18 @@ class OverlayService : Service(), InputZones.Listener {
 
     private var advanced: ShizukuInput? = null
 
+    /** Contadores do teste de entrada (modo avançado). */
+    fun inputStats(): JSONObject {
+        val a = advanced
+        return JSONObject()
+            .put("alive", a?.alive ?: false)
+            .put("lines", a?.linesRead ?: 0)
+            .put("keys", a?.keys ?: 0)
+            .put("moves", a?.moves ?: 0)
+            .put("clicks", a?.clicks ?: 0)
+            .put("touches", a?.touches ?: 0)
+    }
+
     @Suppress("DEPRECATION")
     private fun screenRotation(): Int = try {
         (getSystemService(DISPLAY_SERVICE) as DisplayManager).getDisplay(Display.DEFAULT_DISPLAY).rotation

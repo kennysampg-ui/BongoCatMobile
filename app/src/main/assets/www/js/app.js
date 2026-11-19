@@ -68,6 +68,7 @@
     S.overlay = st.overlay || S.overlay;
     S.notifications = st.notifications;
     S.a11y = st.a11y || S.a11y;
+    S.stats = st.inputStats || {};
     S.shizuku = st.shizuku || S.shizuku;
     S.devices = st.devices || {};
     S.app = st.app || {};
@@ -596,6 +597,8 @@
       '<div class="field"><div class="row between"><div class="grow"><b>Shizuku</b></div><span class="chip ' + (zk.running ? 'on' : 'off') + '">' + (zk.running ? 'Ativo' : (zk.installed ? 'Instalado, desligado' : 'Não instalado')) + '</span></div></div>' +
       '<div class="field"><div class="row between"><div class="grow"><b>Permissão para o Bongo Cat</b></div><span class="chip ' + (zk.granted ? 'on' : 'off') + '">' + (zk.granted ? 'Concedida' : 'Pendente') + '</span></div>' +
       '<button class="btn sm" id="btn-shizuku" style="margin-top:10px">' + (zk.running ? (zk.granted ? 'Permissão concedida' : 'Conceder permissão') : (zk.installed ? 'Abrir o Shizuku' : 'Baixar o Shizuku')) + '</button></div>' +
+      '<div class="field"><b>Teste de entrada</b><p class="hint">Com o modo avançado ligado, mexa o mouse, aperte teclas e toque na tela (inclusive com o Panda Mouse ligado) e toque em Atualizar. Se um número ficar em 0, o Android não entregou aquele tipo de evento ao Bongo Cat.</p>' +
+      '<div id="inp-stats" class="small"></div><div class="row" style="margin-top:8px"><button class="btn sm" id="btn-stat-refresh">Atualizar</button><button class="btn sm" id="btn-stat-zero">Zerar</button></div></div>' +
       switchField('zvirt', 'Áreas virtuais (não bloqueiam o jogo)', 'Com o Shizuku, as áreas de toque só são desenhadas e o app lê seus toques por baixo: o jogo continua recebendo tudo, inclusive o analógico. Desligue para voltar às áreas que capturam o toque.', s.zonesVirtual !== false) +
       switchField('adv', 'Ativar leitura global de entrada', 'Só funciona com o Shizuku ativo e a permissão concedida.', s.advancedInput) +
       rangeField('advsens', 'Sensibilidade do mouse', 25, 400, 5, Math.round((s.advSens || 1) * 100), function (v) { return (v / 100).toFixed(2) + '×'; }) + '</div>';
@@ -640,6 +643,17 @@
     $('#s-zedit').onchange = function (e) { save({ zonesLocked: !e.target.checked }); };
     $('#s-zvis').onchange = function (e) { save({ zonesVisualOnly: e.target.checked }); };
     $('#s-desk').onchange = function (e) { save({ transparentDesk: e.target.checked }); };
+    var statBase = { lines: 0, keys: 0, moves: 0, clicks: 0, touches: 0 };
+    function showStats() {
+      var st = (API.getState() || {}).inputStats || {};
+      var d = function (k) { return Math.max(0, (st[k] || 0) - (statBase[k] || 0)); };
+      $('#inp-stats').innerHTML = (st.alive ? '<span class="chip on">Lendo entrada</span>' : '<span class="chip off">Parado (Shizuku/permissão/modo desligado)</span>') +
+        '<br>Linhas recebidas do sistema: <b>' + d('lines') + '</b><br>Teclas mapeadas: <b>' + d('keys') + '</b><br>Movimentos do mouse: <b>' + d('moves') +
+        '</b><br>Cliques do mouse: <b>' + d('clicks') + '</b><br>Toques na tela: <b>' + d('touches') + '</b>';
+    }
+    showStats();
+    $('#btn-stat-refresh').onclick = showStats;
+    $('#btn-stat-zero').onclick = function () { var st = (API.getState() || {}).inputStats || {}; statBase = { lines: st.lines || 0, keys: st.keys || 0, moves: st.moves || 0, clicks: st.clicks || 0, touches: st.touches || 0 }; showStats(); };
     $('#s-zvirt').onchange = function (e) { save({ zonesVirtual: e.target.checked }); };
     $('#s-adv').onchange = function (e) {
       save({ advancedInput: e.target.checked });

@@ -92,6 +92,13 @@ class ShizukuInput(private val listener: Listener, private val rotation: () -> I
 
     val alive: Boolean get() = thread?.isAlive == true
 
+    // Contadores do "Teste de entrada" (só números; nada do conteúdo é guardado).
+    @Volatile var keys = 0
+    @Volatile var moves = 0
+    @Volatile var clicks = 0
+    @Volatile var touches = 0
+    @Volatile var linesRead = 0
+
     fun start() {
         if (alive) return
         stopped = false
@@ -205,6 +212,7 @@ class ShizukuInput(private val listener: Listener, private val rotation: () -> I
             p.inputStream.bufferedReader().use { reader ->
                 while (!stopped) {
                     val line = reader.readLine() ?: break
+                    linesRead++
                     // "/dev/input/event5: EV_REL  REL_X  ffffffff"
                     val tok = line.trim().split(Regex("\\s+"))
                     if (tok.size < 4) continue
@@ -233,6 +241,7 @@ class ShizukuInput(private val listener: Listener, private val rotation: () -> I
                         "EV_SYN" -> {
                             if (touch && dev != null) flushTouch(dev)
                             if (relX != 0 || relY != 0) {
+                                moves++
                                 listener.onMove(relX, relY)
                                 relX = 0
                                 relY = 0
@@ -241,12 +250,12 @@ class ShizukuInput(private val listener: Listener, private val rotation: () -> I
                         "EV_KEY" -> {
                             if (value != "DOWN") continue
                             when (code) {
-                                "BTN_LEFT" -> listener.onButton(false)
-                                "BTN_RIGHT" -> listener.onButton(true)
-                                "BTN_TOUCH" -> listener.onTouch()
+                                "BTN_LEFT" -> { clicks++; listener.onButton(false) }
+                                "BTN_RIGHT" -> { clicks++; listener.onButton(true) }
+                                "BTN_TOUCH" -> { touches++; listener.onTouch() }
                                 else -> if (code.startsWith("KEY_")) {
                                     val android = KEYMAP[linuxCode(code)]
-                                    if (android != null) listener.onLinuxKey(android)
+                                    if (android != null) { keys++; listener.onLinuxKey(android) }
                                 }
                             }
                         }
